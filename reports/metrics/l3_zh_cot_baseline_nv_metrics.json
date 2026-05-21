@@ -1,0 +1,20 @@
+{
+  "file": "saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot_predict_l3_nv_holdout/generated_predictions.jsonl",
+  "n": 152,
+  "parsed": 152,
+  "parse_rate": 1.0,
+  "positive_labels": 76,
+  "negative_labels": 76,
+  "positive_predictions": 74,
+  "negative_predictions": 78,
+  "tp": 55,
+  "tn": 57,
+  "fp": 19,
+  "fn": 21,
+  "accuracy": 0.7368421052631579,
+  "precision": 0.7432432432432432,
+  "recall": 0.7236842105263158,
+  "f1": 0.7333333333333334,
+  "fpr": 0.25,
+  "parse_fail_examples": []
+}

@@ -1,0 +1,309 @@
+{
+  "train_output": "data/annotation/fundus_l4_unified_lesion_cot_v3_sft.jsonl",
+  "holdout_output": "data/annotation/fundus_l4_unified_lesion_cot_v3_holdout_sft.jsonl",
+  "v3_budgets": {
+    "Step1": null,
+    "Step2a": 1100,
+    "Step2b": 0,
+    "Step3a": 200,
+    "Step3b": 700,
+    "Step3c": 500,
+    "Step4": 1900,
+    "Step4b": 100,
+    "Step5a": 600,
+    "Step5b": 400,
+    "Step5c": 100,
+    "Step6": 1800,
+    "Step6b": 0
+  },
+  "raw": {
+    "train": {
+      "n": 9150,
+      "n_augmented_records": 152,
+      "grades": {
+        "0": 1843,
+        "1": 991,
+        "2": 3592,
+        "3": 1257,
+        "4": 1467
+      },
+      "decision_rules": {
+        "supervised_grade2_evidence_limited": 660,
+        "grade4_label_with_possible_nv_template": 919,
+        "mild_or_template_ma_grade1": 848,
+        "no_reliable_dr_lesion_grade0": 1843,
+        "nonproliferative_lesions_without_severe_boundary_grade2": 2932,
+        "supervised_grade3_evidence_limited": 879,
+        "heavy_nonproliferative_without_nv_grade3": 325,
+        "supervised_grade4_without_direct_nv_evidence_limited": 377,
+        "supervised_grade1_evidence_limited": 22,
+        "irma_without_nv_grade3_boundary": 53,
+        "ma_only_grade1": 121,
+        "nv_present_grade4_pdr": 171
+      },
+      "selected_step": {
+        "Step4b": 660,
+        "Step2a": 919,
+        "Step5a": 848,
+        "Step6": 1843,
+        "Step4": 2932,
+        "Step3c": 879,
+        "Step3b": 325,
+        "Step2b": 377,
+        "Step5c": 22,
+        "Step3a": 53,
+        "Step5b": 121,
+        "Step1": 171
+      },
+      "burden": {
+        "heavy": 1298,
+        "moderate": 3179,
+        "none": 2704,
+        "light": 1969
+      },
+      "evidence_limited": {
+        "True": 3705,
+        "False": 5445
+      },
+      "lesion_states": {
+        "('EX', 'absent')": 4140,
+        "('EX', 'present')": 4966,
+        "('EX', 'unknown')": 44,
+        "('HE', 'absent')": 3714,
+        "('HE', 'present')": 5418,
+        "('HE', 'unknown')": 18,
+        "('IRMA', 'absent')": 1527,
+        "('IRMA', 'present')": 276,
+        "('IRMA', 'unknown')": 7347,
+        "('MA', 'absent')": 2083,
+        "('MA', 'present')": 1418,
+        "('MA', 'template_only')": 848,
+        "('MA', 'unknown')": 4801,
+        "('NV', 'absent')": 8052,
+        "('NV', 'possible_by_grade_template')": 919,
+        "('NV', 'present')": 179,
+        "('SE', 'absent')": 7066,
+        "('SE', 'present')": 1881,
+        "('SE', 'unknown')": 203
+      },
+      "source_files": {
+        "validated_clean.jsonl": 8652,
+        "fundus_l4_grade4_augmented_train_sft.jsonl": 498
+      },
+      "missing_images": 0
+    },
+    "holdout": {
+      "n": 993,
+      "n_augmented_records": 0,
+      "grades": {
+        "0": 231,
+        "1": 120,
+        "2": 386,
+        "3": 126,
+        "4": 130
+      },
+      "decision_rules": {
+        "nonproliferative_lesions_without_severe_boundary_grade2": 305,
+        "no_reliable_dr_lesion_grade0": 220,
+        "supervised_grade2_evidence_limited": 81,
+        "grade4_label_with_possible_nv_template": 107,
+        "mild_or_template_ma_grade1": 99,
+        "heavy_nonproliferative_without_nv_grade3": 49,
+        "supervised_grade3_evidence_limited": 74,
+        "supervised_grade4_without_direct_nv_evidence_limited": 23,
+        "supervised_grade0_unexpected_lesion": 11,
+        "supervised_grade1_evidence_limited": 5,
+        "ma_only_grade1": 16,
+        "irma_without_nv_grade3_boundary": 3
+      },
+      "selected_step": {
+        "Step4": 305,
+        "Step6": 220,
+        "Step4b": 81,
+        "Step2a": 107,
+        "Step5a": 99,
+        "Step3b": 49,
+        "Step3c": 74,
+        "Step2b": 23,
+        "Step6b": 11,
+        "Step5c": 5,
+        "Step5b": 16,
+        "Step3a": 3
+      },
+      "burden": {
+        "moderate": 299,
+        "none": 319,
+        "heavy": 176,
+        "light": 199
+      },
+      "evidence_limited": {
+        "False": 593,
+        "True": 400
+      },
+      "lesion_states": {
+        "('EX', 'absent')": 479,
+        "('EX', 'present')": 514,
+        "('HE', 'absent')": 414,
+        "('HE', 'present')": 579,
+        "('IRMA', 'absent')": 121,
+        "('IRMA', 'present')": 6,
+        "('IRMA', 'unknown')": 866,
+        "('MA', 'absent')": 245,
+        "('MA', 'present')": 129,
+        "('MA', 'template_only')": 99,
+        "('MA', 'unknown')": 520,
+        "('NV', 'absent')": 886,
+        "('NV', 'possible_by_grade_template')": 107,
+        "('SE', 'absent')": 801,
+        "('SE', 'present')": 192
+      },
+      "source_files": {
+        "validated_clean.jsonl": 993
+      },
+      "missing_images": 0
+    }
+  },
+  "selected": {
+    "train": {
+      "n": 6511,
+      "n_augmented_records": 152,
+      "grades": {
+        "0": 1800,
+        "1": 743,
+        "2": 2000,
+        "3": 878,
+        "4": 1090
+      },
+      "decision_rules": {
+        "supervised_grade2_evidence_limited": 100,
+        "grade4_label_with_possible_nv_template": 919,
+        "mild_or_template_ma_grade1": 600,
+        "no_reliable_dr_lesion_grade0": 1800,
+        "nonproliferative_lesions_without_severe_boundary_grade2": 1900,
+        "supervised_grade3_evidence_limited": 500,
+        "heavy_nonproliferative_without_nv_grade3": 325,
+        "supervised_grade1_evidence_limited": 22,
+        "irma_without_nv_grade3_boundary": 53,
+        "ma_only_grade1": 121,
+        "nv_present_grade4_pdr": 171
+      },
+      "selected_step": {
+        "Step4b": 100,
+        "Step2a": 919,
+        "Step5a": 600,
+        "Step6": 1800,
+        "Step4": 1900,
+        "Step3c": 500,
+        "Step3b": 325,
+        "Step5c": 22,
+        "Step3a": 53,
+        "Step5b": 121,
+        "Step1": 171
+      },
+      "burden": {
+        "heavy": 731,
+        "none": 2413,
+        "moderate": 2054,
+        "light": 1313
+      },
+      "evidence_limited": {
+        "True": 2141,
+        "False": 4370
+      },
+      "lesion_states": {
+        "('EX', 'absent')": 3425,
+        "('EX', 'present')": 3076,
+        "('EX', 'unknown')": 10,
+        "('HE', 'absent')": 3130,
+        "('HE', 'present')": 3378,
+        "('HE', 'unknown')": 3,
+        "('IRMA', 'absent')": 851,
+        "('IRMA', 'present')": 210,
+        "('IRMA', 'unknown')": 5450,
+        "('MA', 'absent')": 1940,
+        "('MA', 'present')": 835,
+        "('MA', 'template_only')": 600,
+        "('MA', 'unknown')": 3136,
+        "('NV', 'absent')": 5413,
+        "('NV', 'possible_by_grade_template')": 919,
+        "('NV', 'present')": 179,
+        "('SE', 'absent')": 5408,
+        "('SE', 'present')": 1061,
+        "('SE', 'unknown')": 42
+      },
+      "source_files": {
+        "validated_clean.jsonl": 6356,
+        "fundus_l4_grade4_augmented_train_sft.jsonl": 155
+      },
+      "missing_images": 0
+    },
+    "holdout": {
+      "n": 150,
+      "n_augmented_records": 0,
+      "grades": {
+        "0": 30,
+        "1": 30,
+        "2": 30,
+        "3": 30,
+        "4": 30
+      },
+      "decision_rules": {
+        "nonproliferative_lesions_without_severe_boundary_grade2": 23,
+        "no_reliable_dr_lesion_grade0": 30,
+        "grade4_label_with_possible_nv_template": 28,
+        "supervised_grade3_evidence_limited": 17,
+        "mild_or_template_ma_grade1": 26,
+        "heavy_nonproliferative_without_nv_grade3": 12,
+        "supervised_grade2_evidence_limited": 7,
+        "supervised_grade4_without_direct_nv_evidence_limited": 2,
+        "ma_only_grade1": 3,
+        "supervised_grade1_evidence_limited": 1,
+        "irma_without_nv_grade3_boundary": 1
+      },
+      "selected_step": {
+        "Step4": 23,
+        "Step6": 30,
+        "Step2a": 28,
+        "Step3c": 17,
+        "Step5a": 26,
+        "Step3b": 12,
+        "Step4b": 7,
+        "Step2b": 2,
+        "Step5b": 3,
+        "Step5c": 1,
+        "Step3a": 1
+      },
+      "burden": {
+        "moderate": 37,
+        "light": 26,
+        "none": 56,
+        "heavy": 31
+      },
+      "evidence_limited": {
+        "False": 69,
+        "True": 81
+      },
+      "lesion_states": {
+        "('EX', 'absent')": 76,
+        "('EX', 'present')": 74,
+        "('HE', 'absent')": 67,
+        "('HE', 'present')": 83,
+        "('IRMA', 'absent')": 17,
+        "('IRMA', 'present')": 1,
+        "('IRMA', 'unknown')": 132,
+        "('MA', 'absent')": 33,
+        "('MA', 'present')": 16,
+        "('MA', 'template_only')": 26,
+        "('MA', 'unknown')": 75,
+        "('NV', 'absent')": 122,
+        "('NV', 'possible_by_grade_template')": 28,
+        "('SE', 'absent')": 121,
+        "('SE', 'present')": 29
+      },
+      "source_files": {
+        "validated_clean.jsonl": 150
+      },
+      "missing_images": 0
+    }
+  }
+}

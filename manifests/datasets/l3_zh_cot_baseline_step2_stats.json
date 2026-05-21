@@ -1,0 +1,71 @@
+{
+  "output": "data/annotation/fundus_l3_six_lesion_calib_pilot_sft.jsonl",
+  "per_task": 1200,
+  "requested_total": 7200,
+  "summary": {
+    "n": 7200,
+    "tasks": {
+      "L3_IRMA_single": 1200,
+      "L3_MA_single": 1200,
+      "L3_EX_single": 1200,
+      "L3_HE_single": 1200,
+      "L3_SE_single": 1200,
+      "L3_NV_single": 1200
+    },
+    "present": {
+      "('L3_EX_single', False)": 600,
+      "('L3_EX_single', True)": 600,
+      "('L3_HE_single', False)": 600,
+      "('L3_HE_single', True)": 600,
+      "('L3_IRMA_single', False)": 600,
+      "('L3_IRMA_single', True)": 600,
+      "('L3_MA_single', False)": 600,
+      "('L3_MA_single', True)": 600,
+      "('L3_NV_single', False)": 600,
+      "('L3_NV_single', True)": 600,
+      "('L3_SE_single', False)": 600,
+      "('L3_SE_single', True)": 600
+    },
+    "components": {
+      "L3_IRMA_single": 1200,
+      "L3_MA_single": 1200,
+      "L3_EX_single": 1200,
+      "L3_HE_single": 1200,
+      "L3_SE_single": 1200,
+      "L3_NV_single": 1200
+    },
+    "source_counts": {
+      "L3_EX_single": {
+        "total": 9052,
+        "positive": 4526,
+        "negative": 4526
+      },
+      "L3_SE_single": {
+        "total": 2812,
+        "positive": 1212,
+        "negative": 1600
+      },
+      "L3_MA_single": {
+        "total": 2112,
+        "positive": 912,
+        "negative": 1200
+      },
+      "L3_HE_single": {
+        "total": 9277,
+        "positive": 4964,
+        "negative": 4313
+      },
+      "L3_NV_single": {
+        "total": 454,
+        "positive": 227,
+        "negative": 227
+      },
+      "L3_IRMA_single": {
+        "total": 1150,
+        "positive": 575,
+        "negative": 575
+      }
+    },
+    "missing_images": 0
+  }
+}

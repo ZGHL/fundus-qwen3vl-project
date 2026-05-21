@@ -1,0 +1,40 @@
+### model
+model_name_or_path: ./models/Qwen3-VL-8B-Instruct
+adapter_name_or_path: saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot
+trust_remote_code: true
+flash_attn: sdpa
+
+### method
+stage: sft
+do_predict: true
+finetuning_type: lora
+
+### dataset
+dataset_dir: data/annotation
+media_dir: data
+eval_dataset: fundus_l3_presence_holdout80
+template: qwen3_vl_nothink
+cutoff_len: 2304
+preprocessing_num_workers: 1
+dataloader_num_workers: 0
+overwrite_cache: true
+
+### qwen3-vl image tokens
+image_max_pixels: 262144
+image_min_pixels: 65536
+
+### output
+output_dir: saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot_predict_l3_presence_holdout80
+overwrite_output_dir: true
+report_to: none
+
+### eval
+per_device_eval_batch_size: 1
+predict_with_generate: true
+do_sample: false
+temperature: 0.0
+top_p: 1.0
+max_new_tokens: 256
+bf16: true
+fp16: false
+ddp_timeout: 180000000

@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RetSAM Monitor</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+      .row { display: flex; gap: 16px; flex-wrap: wrap; }
+      .card { border: 1px solid rgba(127,127,127,0.35); border-radius: 10px; padding: 12px 14px; min-width: 280px; flex: 1; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      .muted { opacity: 0.75; }
+      .bar { height: 10px; background: rgba(127,127,127,0.25); border-radius: 999px; overflow: hidden; }
+      .bar > div { height: 100%; background: #3b82f6; width: 0%; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      canvas { width: 100% !important; height: 260px !important; }
+      select, input { padding: 6px 8px; }
+    </style>
+    <!-- Chart.js is optional. If this CDN is blocked, the page should still update text stats. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <div class="row">
+      <div class="card" style="flex: 2; min-width: 420px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px;">
+          <div>
+            <div style="font-size: 18px; font-weight: 700;">RetSAM Monitor</div>
+            <div class="muted">Real-time inference progress + quantitative stats</div>
+          </div>
+          <div class="mono">
+            Dataset:
+            <select id="dataset">
+              <option value="aptos">aptos</option>
+              <option value="ddr_grading">ddr_grading</option>
+              <option value="idrid">idrid</option>
+              <option value="fgadr_seg">fgadr_seg</option>
+              <option value="ddr_seg">ddr_seg</option>
+            </select>
+            Refresh:
+            <input id="refresh" type="number" min="1" max="60" value="5" style="width:64px;" />s
+          </div>
+        </div>
+        <div style="margin-top: 10px;">
+          <div class="bar"><div id="barFill"></div></div>
+          <div style="display:flex; justify-content:space-between; margin-top:8px; gap:12px; flex-wrap:wrap;">
+            <div class="mono" id="progressLine">loading...</div>
+            <div class="mono muted" id="etaLine"></div>
+          </div>
+        </div>
+        <div class="grid2" style="margin-top: 10px;">
+          <div class="mono" id="countsLine"></div>
+          <div class="mono" id="speedLine"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;">System</div>
+        <div class="mono muted" id="systemLine">loading...</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 16px;">
+      <div class="card">
+        <div style="font-weight:700;">Lesion present rate (HE/EX/SE)</div>
+        <canvas id="presentChart"></canvas>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;">Quadrant distribution (HE)</div>
+        <canvas id="heQuadChart"></canvas>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 16px;">
+      <div class="card">
+        <div style="font-weight:700;">Quadrant distribution (EX)</div>
+        <canvas id="exQuadChart"></canvas>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;">Quadrant distribution (SE)</div>
+        <canvas id="seQuadChart"></canvas>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 16px;">
+      <div class="card">
+        <div style="font-weight:700;">Recent errors (tail)</div>
+        <pre class="mono" id="errorsBox" style="white-space:pre-wrap; max-height: 220px; overflow:auto; margin: 8px 0 0 0;"></pre>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 16px;">
+      <div class="card">
+        <div style="font-weight:700;">RetSAM-only biomarkers (recent)</div>
+        <pre class="mono" id="bioBox" style="white-space:pre-wrap; margin: 8px 0 0 0;"></pre>
+      </div>
+    </div>
+
+    <script>
+      function fmt(n) { return (n === null || n === undefined) ? "-" : String(n); }
+      function fmtPct(x) { return (x === null || x === undefined) ? "-" : (x*100).toFixed(1) + "%"; }
+      function fmtSec(s) {
+        if (!Number.isFinite(s) || s <= 0) return "-";
+        const h = Math.floor(s/3600); s -= h*3600;
+        const m = Math.floor(s/60); s -= m*60;
+        const sec = Math.floor(s);
+        if (h>0) return `${h}h ${m}m`;
+        if (m>0) return `${m}m ${sec}s`;
+        return `${sec}s`;
+      }
+
+      const charts = {};
+      function setBanner(msg) {
+        let el = document.getElementById("banner");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "banner";
+          el.className = "card mono";
+          el.style.marginTop = "12px";
+          document.body.prepend(el);
+        }
+        el.textContent = msg;
+      }
+      function makeBarChart(canvasId, labels) {
+        const ctx = document.getElementById(canvasId);
+        return new Chart(ctx, {
+          type: "bar",
+          data: { labels, datasets: [{ label: "count", data: labels.map(_=>0) }] },
+          options: { responsive: true, animation: false, scales: { y: { beginAtZero: true } } }
+        });
+      }
+
+      function makeRateChart(canvasId) {
+        const ctx = document.getElementById(canvasId);
+        return new Chart(ctx, {
+          type: "bar",
+          data: { labels: ["HE","EX","SE"], datasets: [{ label: "present_rate", data: [0,0,0] }] },
+          options: {
+            responsive: true,
+            animation: false,
+            scales: { y: { beginAtZero: true, max: 1.0, ticks: { callback: (v)=> (v*100).toFixed(0)+"%" } } },
+            plugins: { tooltip: { callbacks: { label: (ctx)=> (ctx.raw*100).toFixed(1)+"%" } } }
+          }
+        });
+      }
+
+      function initCharts() {
+        if (!window.Chart) {
+          setBanner("Chart.js not loaded (CDN blocked). Falling back to text-only updates.");
+          return false;
+        }
+        charts.present = makeRateChart("presentChart");
+        charts.heq = makeBarChart("heQuadChart", ["TS","TI","NS","NI"]);
+        charts.exq = makeBarChart("exQuadChart", ["TS","TI","NS","NI"]);
+        charts.seq = makeBarChart("seQuadChart", ["TS","TI","NS","NI"]);
+        return true;
+      }
+
+      async function fetchJson(url) {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+      }
+
+      function updateCharts(stats) {
+        if (!window.Chart || !charts.present) return;
+        const pr = stats.present_rates || {};
+        charts.present.data.datasets[0].data = [pr.HE||0, pr.EX||0, pr.SE||0];
+        charts.present.update();
+
+        function setQuad(chart, quad) {
+          chart.data.datasets[0].data = ["TS","TI","NS","NI"].map(k => (quad && quad[k]) ? quad[k] : 0);
+          chart.update();
+        }
+        setQuad(charts.heq, stats.quadrant_sums?.HE);
+        setQuad(charts.exq, stats.quadrant_sums?.EX);
+        setQuad(charts.seq, stats.quadrant_sums?.SE);
+      }
+
+      async function tick() {
+        const ds = document.getElementById("dataset").value;
+        try {
+          const [prog, stats, sys] = await Promise.all([
+            fetchJson(`/api/progress?dataset=${encodeURIComponent(ds)}`),
+            fetchJson(`/api/stats?dataset=${encodeURIComponent(ds)}`),
+            fetchJson(`/api/system`),
+          ]);
+
+          const total = prog.total || 0;
+          const done = prog.done || 0;
+          const pct = total > 0 ? (done/total) : 0;
+          document.getElementById("barFill").style.width = (pct*100).toFixed(2) + "%";
+          document.getElementById("progressLine").textContent =
+            `done ${done}/${total} (${(pct*100).toFixed(2)}%)`;
+
+          document.getElementById("countsLine").textContent =
+            `skipped=${fmt(prog.skipped)} failed=${fmt(prog.failed)} errors_jsonl=${fmt(prog.errors_lines)}`;
+
+          document.getElementById("speedLine").textContent =
+            `rate=${fmt(prog.rate_ips)} img/s  avg=${fmt(prog.avg_sec_per_img)} s/img`;
+
+          document.getElementById("etaLine").textContent =
+            `ETA ${fmtSec(prog.eta_sec)}  updated_at=${fmt(prog.updated_at)}`;
+
+          document.getElementById("errorsBox").textContent = (prog.errors_tail || "").trim() || "(no errors)";
+
+          document.getElementById("systemLine").textContent =
+            `gpu_util=${fmt(sys.gpu?.util_gpu_pct)}% mem=${fmt(sys.gpu?.mem_used_mb)}/${fmt(sys.gpu?.mem_total_mb)}MB temp=${fmt(sys.gpu?.temp_c)}C  disk_free=${fmt(sys.disk?.free_gb)}GB`;
+
+          updateCharts(stats);
+          const bio = {
+            eye_side: stats.eye_side || null,
+            av_ratio: stats.av_ratio || null,
+            cdr: stats.cdr || null,
+            tortuosity: stats.tortuosity || null,
+            vessel_qc_flag_true_rate: stats.vessel_qc_flag_true_rate ?? null,
+            coord_anomaly_rate: stats.coord_anomaly_rate ?? null,
+          };
+          document.getElementById("bioBox").textContent = JSON.stringify(bio, null, 2);
+        } catch (e) {
+          document.getElementById("progressLine").textContent = "error: " + e;
+        }
+      }
+
+      // Never let Chart.js errors stop the update loop.
+      try { initCharts(); } catch (e) { setBanner("Chart init failed: " + e); }
+
+      async function loop() {
+        await tick();
+        const sec = Math.max(1, Number(document.getElementById("refresh").value || 5));
+        setTimeout(loop, sec * 1000);
+      }
+      loop();
+      document.getElementById("dataset").addEventListener("change", tick);
+      document.getElementById("refresh").addEventListener("change", tick);
+    </script>
+  </body>
+</html>
+

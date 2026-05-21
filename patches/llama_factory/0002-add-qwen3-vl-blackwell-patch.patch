@@ -1,0 +1,125 @@
+diff --git a/src/llamafactory/model/model_utils/qwen3_vl_blackwell.py b/src/llamafactory/model/model_utils/qwen3_vl_blackwell.py
+new file mode 100644
+index 00000000..2e8a020b
+--- /dev/null
++++ b/src/llamafactory/model/model_utils/qwen3_vl_blackwell.py
+@@ -0,0 +1,119 @@
++# Copyright 2025 the LlamaFactory team.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++"""Patches for Qwen3-VL on Blackwell (e.g. GB10, sm_121).
++
++`torch.prod` on CUDA can invoke NVRTC jiterator kernels; on some toolchains the
++`-arch` passed to nvrtc is rejected (RuntimeError ending with
++``nvrtc: error: invalid value for --gpu-architecture (-arch)``).  Replacing
++``prod`` over the last dimension with explicit multiplication avoids that path.
++"""
++
++from __future__ import annotations
++
++from types import MethodType
++from typing import TYPE_CHECKING
++
++import torch
++
++from ...extras import logging
++
++if TYPE_CHECKING:
++    from transformers import PreTrainedModel
++
++logger = logging.get_logger(__name__)
++
++
++def _grid_thw_prod_last_dim(grid_thw: torch.Tensor) -> torch.Tensor:
++    """(N, 3) -> (N,) product of t,h,w without ``torch.prod``."""
++    g = grid_thw.to(dtype=torch.long)
++    return g[:, 0] * g[:, 1] * g[:, 2]
++
++
++def _patched_rot_pos_emb(self, grid_thw: torch.Tensor) -> torch.Tensor:
++    merge_size = self.spatial_merge_size
++
++    max_hw = int(grid_thw[:, 1:].max().item())
++    freq_table = self.rotary_pos_emb(max_hw)
++    device = freq_table.device
++
++    total_tokens = int(_grid_thw_prod_last_dim(grid_thw).sum().item())
++    pos_ids = torch.empty((total_tokens, 2), dtype=torch.long, device=device)
++
++    offset = 0
++    for num_frames, height, width in grid_thw:
++        merged_h, merged_w = height // merge_size, width // merge_size
++
++        block_rows = torch.arange(merged_h, device=device)
++        block_cols = torch.arange(merged_w, device=device)
++        intra_row = torch.arange(merge_size, device=device)
++        intra_col = torch.arange(merge_size, device=device)
++
++        row_idx = block_rows[:, None, None, None] * merge_size + intra_row[None, None, :, None]
++        col_idx = block_cols[None, :, None, None] * merge_size + intra_col[None, None, None, :]
++
++        row_idx = row_idx.expand(merged_h, merged_w, merge_size, merge_size).reshape(-1)
++        col_idx = col_idx.expand(merged_h, merged_w, merge_size, merge_size).reshape(-1)
++
++        coords = torch.stack((row_idx, col_idx), dim=-1)
++
++        if num_frames > 1:
++            coords = coords.repeat(num_frames, 1)
++
++        num_tokens = coords.shape[0]
++        pos_ids[offset : offset + num_tokens] = coords
++        offset += num_tokens
++
++    embeddings = freq_table[pos_ids]
++    embeddings = embeddings.flatten(1)
++    return embeddings
++
++
++def _patched_get_image_features(self, pixel_values, image_grid_thw=None, **kwargs):
++    pixel_values = pixel_values.type(self.visual.dtype)
++    kw = dict(kwargs)
++    kw.pop("return_dict", None)
++    vision_output = self.visual(
++        pixel_values, grid_thw=image_grid_thw, return_dict=True, **kw
++    )
++    image_embeds = vision_output.pooler_output
++    g = image_grid_thw
++    split_sizes = (
++        (_grid_thw_prod_last_dim(g) // (self.visual.spatial_merge_size**2)).tolist()
++    )
++    image_embeds = torch.split(image_embeds, split_sizes)
++    vision_output.pooler_output = image_embeds
++    return vision_output
++
++
++def patch_qwen3_vl_cuda_prod(model: "PreTrainedModel") -> None:
++    try:
++        from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLModel, Qwen3VLVisionModel
++    except Exception:
++        return
++
++    n_vis = n_lm = 0
++    for module in model.modules():
++        if isinstance(module, Qwen3VLVisionModel):
++            module.rot_pos_emb = MethodType(_patched_rot_pos_emb, module)
++            n_vis += 1
++        if isinstance(module, Qwen3VLModel):
++            module.get_image_features = MethodType(_patched_get_image_features, module)
++            n_lm += 1
++
++    if n_vis or n_lm:
++        logger.info_rank0(
++            "Patched Qwen3-VL torch.prod paths for CUDA (Blackwell/GB10): "
++            f"{n_vis} vision module(s), {n_lm} multimodal module(s)."
++        )

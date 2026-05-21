@@ -1,0 +1,192 @@
+{
+  "n_records": 11783,
+  "datasets": {
+    "aptos::all": {
+      "n": 3662
+    },
+    "ddr_grading::all": {
+      "n": 5006
+    },
+    "idrid::train": {
+      "n": 413
+    },
+    "idrid::test": {
+      "n": 103
+    },
+    "fgadr_seg::all": {
+      "n": 1842
+    },
+    "ddr_seg::train": {
+      "n": 383
+    },
+    "ddr_seg::valid": {
+      "n": 149
+    },
+    "ddr_seg::test": {
+      "n": 225
+    }
+  },
+  "present": {
+    "HE": {
+      "aptos::all": 1423,
+      "ddr_grading::all": 2281,
+      "idrid::train": 235,
+      "idrid::test": 27,
+      "fgadr_seg::all": 1423,
+      "ddr_seg::train": 208,
+      "ddr_seg::valid": 57,
+      "ddr_seg::test": 140
+    },
+    "EX": {
+      "aptos::all": 1378,
+      "ddr_grading::all": 2125,
+      "idrid::train": 206,
+      "idrid::test": 27,
+      "fgadr_seg::all": 1170,
+      "ddr_seg::train": 185,
+      "ddr_seg::valid": 46,
+      "ddr_seg::test": 131
+    },
+    "SE": {
+      "aptos::all": 467,
+      "ddr_grading::all": 597,
+      "idrid::train": 59,
+      "idrid::test": 14,
+      "fgadr_seg::all": 553
+    },
+    "MA": {
+      "idrid::train": 54,
+      "idrid::test": 27,
+      "fgadr_seg::all": 971
+    },
+    "IRMA": {
+      "fgadr_seg::all": 98
+    },
+    "NV": {
+      "fgadr_seg::all": 27
+    }
+  },
+  "present_totals": {
+    "HE": 5794,
+    "EX": 5268,
+    "SE": 1690,
+    "MA": 1052,
+    "IRMA": 98,
+    "NV": 27
+  },
+  "sources": {
+    "HE": {
+      "validated_retsam": 4714,
+      "grade_rule_override": 2934,
+      "cleaning_rule": 1576,
+      "retsam_negative": 1189,
+      "strong_mask_stage1_easy": 81,
+      "fgadr_lesion_only_sft_v3": 1289
+    },
+    "EX": {
+      "validated_retsam": 4313,
+      "grade_rule_override": 2934,
+      "cleaning_rule": 1063,
+      "retsam_negative": 2103,
+      "strong_mask_stage1_easy": 81,
+      "fgadr_lesion_only_sft_v3": 1289
+    },
+    "SE": {
+      "cleaning_rule": 3378,
+      "retsam_negative": 2883,
+      "grade_rule_override": 2934,
+      "validated_retsam": 1218,
+      "strong_mask_stage1_easy": 81,
+      "fgadr_lesion_only_sft_v3": 1289
+    },
+    "MA": {
+      "missing_or_strong_mask_required": 7479,
+      "grade_rule": 2934,
+      "strong_mask_stage1_easy": 81,
+      "fgadr_lesion_only_sft_v3": 1289
+    },
+    "NV": {
+      "grade_rule": 10413,
+      "strong_mask_stage1_easy": 81,
+      "fgadr_lesion_only_sft_v3": 1289
+    },
+    "IRMA": {
+      "fgadr_lesion_only_sft_v3": 1289
+    }
+  },
+  "usable_for": {
+    "L2": {
+      "aptos::all": 1857,
+      "ddr_grading::all": 5006,
+      "idrid::train": 413,
+      "fgadr_seg::all": 1842,
+      "ddr_seg::train": 383,
+      "ddr_seg::valid": 149,
+      "ddr_seg::test": 225
+    },
+    "L3": {
+      "aptos::all": 1481,
+      "ddr_grading::all": 3091,
+      "idrid::train": 244,
+      "idrid::test": 27,
+      "fgadr_seg::all": 1725,
+      "ddr_seg::train": 261,
+      "ddr_seg::valid": 81,
+      "ddr_seg::test": 173
+    },
+    "L4": {
+      "aptos::all": 3656,
+      "ddr_grading::all": 3595,
+      "idrid::train": 397,
+      "idrid::test": 52,
+      "fgadr_seg::all": 1793
+    },
+    "retsam_L3": {
+      "aptos::all": 1481,
+      "ddr_grading::all": 3091,
+      "idrid::train": 190,
+      "fgadr_seg::all": 436,
+      "ddr_seg::train": 261,
+      "ddr_seg::valid": 81,
+      "ddr_seg::test": 173
+    },
+    "strong_L3": {
+      "idrid::train": 54,
+      "idrid::test": 27,
+      "fgadr_seg::all": 1289
+    }
+  },
+  "usable_totals": {
+    "L2": 9875,
+    "L3": 7083,
+    "L4": 9493,
+    "retsam_L3": 5713,
+    "strong_L3": 1370
+  },
+  "cleaning_flags": {
+    "retsam_se_low_conf_or_tiny": 3378,
+    "retsam_ex_below_min_area_conf": 1063,
+    "retsam_he_below_min_count_area_conf": 1576,
+    "ex_strong_mask_conflicts_grade1": 33,
+    "he_strong_mask_conflicts_grade1": 43,
+    "ex_strong_mask_conflicts_grade0": 11,
+    "he_strong_mask_conflicts_grade0": 11,
+    "se_strong_mask_conflicts_grade0": 6,
+    "se_strong_mask_conflicts_grade1": 5
+  },
+  "validation_flags_top": {
+    "vessel_qc_low_or_missing": 8012,
+    "macula_disc_scale_anomaly": 5173,
+    "missing_od_or_macula": 1908,
+    "retsam_missing": 1908,
+    "grade1_ma_only_template": 1111,
+    "he_suppressed_grade1": 766,
+    "se_suppressed_grade1": 480,
+    "ex_suppressed_grade1": 453,
+    "he_suppressed_grade0": 105,
+    "se_suppressed_grade0": 46,
+    "ex_suppressed_grade0": 30
+  },
+  "input": "data/fundus_validated/validated.jsonl",
+  "output": "data/fundus_validated/validated_clean.jsonl"
+}

@@ -1,0 +1,618 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 39dd0ad3..bc50e94a 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -40,7 +40,7 @@ dependencies = [
+     "torch>=2.4.0",
+     "torchvision>=0.19.0",
+     "torchaudio>=2.4.0",
+-    "transformers>=4.51.0,<=5.0.0,!=4.52.0,!=4.57.0",
++    "transformers>=4.51.0,!=4.52.0,!=4.57.0,<6.0.0",
+     "datasets>=2.16.0,<=4.0.0",
+     "accelerate>=1.3.0,<=1.11.0",
+     "peft>=0.18.0,<=0.18.1",
+diff --git a/scripts/vllm_infer.py b/scripts/vllm_infer.py
+index c794b7c7..b86ce221 100644
+--- a/scripts/vllm_infer.py
++++ b/scripts/vllm_infer.py
+@@ -17,6 +17,7 @@ import json
+ import time
+ 
+ import av
++import numpy as np
+ import fire
+ from datasets import load_dataset
+ from eval_bleu_rouge import compute_metrics
+@@ -44,11 +45,59 @@ def _need_video_kwargs(template):
+     return False
+ 
+ 
++def _flatten_prompt_token_ids(seq) -> list[int]:
++    r"""Multimodal datasets may nest token rows; vLLM expects ``List[int]``."""
++    if seq is None:
++        return []
++    if isinstance(seq, np.ndarray):
++        seq = seq.tolist()
++    if len(seq) == 0:
++        return []
++    if isinstance(seq[0], (list, tuple)):
++        flat: list[int] = []
++        for item in seq:
++            if isinstance(item, (list, tuple, np.ndarray)):
++                flat.extend(int(x) for x in item)
++            else:
++                flat.append(int(item))
++        return flat
++    return [int(x) for x in seq]
++
++
++def _seq_to_list(seq) -> list:
++    if hasattr(seq, "detach"):  # torch.Tensor
++        return seq.detach().cpu().tolist()
++    if isinstance(seq, np.ndarray):
++        return seq.tolist()
++    return list(seq)
++
++
++def _prompt_token_ids_from_supervised_row(input_ids, labels) -> list[int]:
++    r"""Keep only the prompt (supervised SFT masks reference tokens with ``IGNORE_INDEX``).
++
++    ``train``-stage SFT datasets include the reference answer in ``input_ids``. HF predict on eval uses a
++    prompt-only processor; vLLM must truncate the same way, otherwise the context already ends with EOS
++    and generation returns empty text.
++    """
++    ids = _seq_to_list(input_ids)
++    if labels is None:
++        return ids
++
++    lab = _seq_to_list(labels)
++    if not lab or len(lab) != len(ids):
++        return ids
++    for i, lid in enumerate(lab):
++        if lid != IGNORE_INDEX:
++            return ids[:i]
++    return ids
++
++
+ def vllm_infer(
+     model_name_or_path: str,
+     adapter_name_or_path: str = None,
+     dataset: str = "alpaca_en_demo",
+     dataset_dir: str = "data",
++    media_dir: str | None = "data",
+     template: str = "default",
+     cutoff_len: int = 2048,
+     max_samples: int | None = None,
+@@ -70,36 +119,54 @@ def vllm_infer(
+     video_fps: float = 2.0,
+     video_maxlen: int = 128,
+     batch_size: int = 1024,
++    enforce_eager: bool = True,
++    gpu_memory_utilization: float = 0.75,
++    max_lora_rank: int = 32,
+ ):
+-    r"""Perform batch generation using vLLM engine, which supports tensor parallelism.
++    r"""Perform batch generation using vLLM (``LLM``), including multimodal + LoRA.
++
++    FGADR lesion eval (project layout)::
++
++        bash scripts/run_fgadr_lesion_vllm_predict.sh
+ 
+-    Usage: python vllm_infer.py --model_name_or_path meta-llama/Llama-2-7b-hf --template llama --dataset alpaca_en_demo
++    Or::
++
++        python scripts/vllm_infer.py --model_name_or_path ./models/Qwen3-VL-8B-Instruct \\
++            --adapter_name_or_path saves/.../fgadr_lesion_only_sft_v1 \\
++            --dataset fgadr_cot_expl_eval_lesion_only --dataset_dir data/annotation \\
++            --media_dir data --template qwen3_vl_nothink --cutoff_len 2304 \\
++            --max_new_tokens 640 --image_max_pixels 1048576 --image_min_pixels 65536 \\
++            --enforce_eager true --save_name generated_predictions.vllm.jsonl
++
++    Text-only example: ``python vllm_infer.py --model_name_or_path meta-llama/Llama-2-7b-hf --template llama --dataset alpaca_en_demo``
+     """
+     if pipeline_parallel_size > get_device_count():
+         raise ValueError("Pipeline parallel size should be smaller than the number of gpus.")
+ 
+-    model_args, data_args, _, generating_args = get_infer_args(
+-        dict(
+-            model_name_or_path=model_name_or_path,
+-            adapter_name_or_path=adapter_name_or_path,
+-            dataset=dataset,
+-            dataset_dir=dataset_dir,
+-            template=template,
+-            cutoff_len=cutoff_len,
+-            max_samples=max_samples,
+-            preprocessing_num_workers=16,
+-            default_system=default_system,
+-            enable_thinking=enable_thinking,
+-            vllm_config=vllm_config,
+-            temperature=temperature,
+-            top_p=top_p,
+-            top_k=top_k,
+-            max_new_tokens=max_new_tokens,
+-            repetition_penalty=repetition_penalty,
+-        )
++    infer_kw: dict = dict(
++        model_name_or_path=model_name_or_path,
++        adapter_name_or_path=adapter_name_or_path,
++        dataset=dataset,
++        dataset_dir=dataset_dir,
++        template=template,
++        cutoff_len=cutoff_len,
++        max_samples=max_samples,
++        preprocessing_num_workers=16,
++        default_system=default_system,
++        enable_thinking=enable_thinking,
++        vllm_config=vllm_config,
++        temperature=temperature,
++        top_p=top_p,
++        top_k=top_k,
++        max_new_tokens=max_new_tokens,
++        repetition_penalty=repetition_penalty,
++        trust_remote_code=True,
+     )
++    if media_dir is not None:
++        infer_kw["media_dir"] = media_dir
++    model_args, data_args, _, generating_args = get_infer_args(infer_kw)
+ 
+-    training_args = Seq2SeqTrainingArguments(output_dir="dummy_dir")
++    training_args = Seq2SeqTrainingArguments(output_dir="dummy_dir", predict_with_generate=True)
+     tokenizer_module = load_tokenizer(model_args)
+     tokenizer = tokenizer_module["tokenizer"]
+     template_obj = get_template_and_fix_tokenizer(tokenizer, data_args)
+@@ -113,8 +180,12 @@ def vllm_infer(
+         "tensor_parallel_size": (get_device_count() // pipeline_parallel_size) or 1,
+         "pipeline_parallel_size": pipeline_parallel_size,
+         "disable_log_stats": True,
++        "enforce_eager": enforce_eager,
++        "gpu_memory_utilization": gpu_memory_utilization,
+         "enable_lora": model_args.adapter_name_or_path is not None,
+     }
++    if model_args.adapter_name_or_path is not None:
++        engine_args["max_lora_rank"] = max_lora_rank
+     if template_obj.mm_plugin.__class__.__name__ != "BasePlugin":
+         engine_args["limit_mm_per_prompt"] = {"image": 4, "video": 2, "audio": 2}
+ 
+@@ -125,7 +196,7 @@ def vllm_infer(
+     llm = LLM(**engine_args)
+ 
+     # load datasets
+-    dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "ppo", **tokenizer_module)
++    dataset_module = get_dataset(template_obj, model_args, data_args, training_args, "sft", **tokenizer_module)
+     train_dataset = dataset_module["train_dataset"]
+ 
+     sampling_params = SamplingParams(
+@@ -202,18 +273,21 @@ def vllm_infer(
+             else:
+                 multi_modal_data = None
+ 
+-            vllm_input_data = {"prompt_token_ids": batch["input_ids"][j], "multi_modal_data": multi_modal_data}
++            row_ids = batch["input_ids"][j]
++            if batch.get("labels") is not None:
++                row_ids = _prompt_token_ids_from_supervised_row(row_ids, batch["labels"][j])
++            flat_ids = _flatten_prompt_token_ids(row_ids)
++            vllm_input_data = {"prompt_token_ids": flat_ids, "multi_modal_data": multi_modal_data}
+             if "video_metadata_kwargs" in locals() and video_metadata_kwargs is not None:
+                 vllm_input_data["mm_processor_kwargs"] = video_metadata_kwargs
+ 
+             vllm_inputs.append(vllm_input_data)
+-            prompts.append(tokenizer.decode(batch["input_ids"][j], skip_special_tokens=skip_special_tokens))
+-            labels.append(
+-                tokenizer.decode(
+-                    list(filter(lambda x: x != IGNORE_INDEX, batch["labels"][j])),
+-                    skip_special_tokens=skip_special_tokens,
+-                )
+-            )
++            prompts.append(tokenizer.decode(flat_ids, skip_special_tokens=skip_special_tokens))
++            lab = batch["labels"][j]
++            if isinstance(lab, np.ndarray):
++                lab = lab.tolist()
++            label_ids = [int(x) for x in lab if x != IGNORE_INDEX]
++            labels.append(tokenizer.decode(label_ids, skip_special_tokens=skip_special_tokens))
+ 
+         results = llm.generate(vllm_inputs, sampling_params, lora_request=lora_request)
+         preds = [result.outputs[0].text for result in results]
+diff --git a/src/llamafactory/data/collator.py b/src/llamafactory/data/collator.py
+index d1e562d9..7bc012f4 100644
+--- a/src/llamafactory/data/collator.py
++++ b/src/llamafactory/data/collator.py
+@@ -189,6 +189,16 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
+                 "video_grid_thw": mm_inputs.get("video_grid_thw"),
+                 "attention_mask": (features["attention_mask"] >= 1).float(),
+             }
++            # Qwen3.5 / Qwen3-VL (newer transformers): mrope get_rope_index needs mm_token_type_ids when provided by processor.
++            if (
++                self.processor is not None
++                and getattr(self.model.config, "model_type", None) in ("qwen3_5", "qwen3_vl", "qwen3_vl_moe")
++                and hasattr(self.processor, "create_mm_token_type_ids")
++            ):
++                mm_tid = self.processor.create_mm_token_type_ids(features["input_ids"].tolist())
++                rope_index_kwargs["mm_token_type_ids"] = torch.tensor(
++                    mm_tid, dtype=torch.int32, device=features["input_ids"].device
++                )
+             if "second_per_grid_ts" in mm_inputs:  # for qwen2vl
+                 rope_index_kwargs["second_per_grid_ts"] = mm_inputs.get("second_per_grid_ts")
+             elif "video_second_per_grid" in mm_inputs:  # for qwen2.5 omni
+@@ -219,6 +229,7 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
+                 "qwen2_5_vl",
+                 "qwen2_5_omni_thinker",
+                 "qwen3_omni_moe_thinker",
++                "qwen3_5",
+                 "qwen3_vl",
+                 "qwen3_vl_moe",
+             ]
+diff --git a/src/llamafactory/data/mm_plugin.py b/src/llamafactory/data/mm_plugin.py
+index fca092cb..e721d362 100644
+--- a/src/llamafactory/data/mm_plugin.py
++++ b/src/llamafactory/data/mm_plugin.py
+@@ -26,7 +26,10 @@ from typing import TYPE_CHECKING, BinaryIO, Literal, NotRequired, Optional, Type
+ 
+ import numpy as np
+ import torch
+-import torchaudio
++try:
++    import torchaudio
++except Exception:
++    torchaudio = None
+ from transformers.image_utils import get_image_size, is_valid_image, to_numpy_array
+ from transformers.models.mllama.processing_mllama import (
+     convert_sparse_cross_attention_mask_to_dense,
+@@ -308,6 +311,10 @@ class MMPluginMixin:
+         results, sampling_rates = [], []
+         for audio in audios:
+             if not isinstance(audio, np.ndarray):
++                if torchaudio is None:
++                    raise ImportError(
++                        "torchaudio is required for audio inputs, but is not installed."
++                    )
+                 audio, sr = torchaudio.load(audio)
+                 if audio.shape[0] > 1:
+                     audio = audio.mean(dim=0, keepdim=True)
+diff --git a/src/llamafactory/extras/misc.py b/src/llamafactory/extras/misc.py
+index 5c077dd5..ad367576 100644
+--- a/src/llamafactory/extras/misc.py
++++ b/src/llamafactory/extras/misc.py
+@@ -94,7 +94,7 @@ def check_version(requirement: str, mandatory: bool = False) -> None:
+ 
+ def check_dependencies() -> None:
+     r"""Check the version of the required packages."""
+-    check_version("transformers>=4.51.0,<=5.0.0")
++    check_version("transformers>=4.51.0,<6.0.0,!=4.52.0,!=4.57.0")
+     check_version("datasets>=2.16.0,<=4.0.0")
+     check_version("accelerate>=1.3.0,<=1.11.0")
+     check_version("peft>=0.18.0,<=0.18.1")
+diff --git a/src/llamafactory/hparams/finetuning_args.py b/src/llamafactory/hparams/finetuning_args.py
+index 053b4ab6..bf39274f 100644
+--- a/src/llamafactory/hparams/finetuning_args.py
++++ b/src/llamafactory/hparams/finetuning_args.py
+@@ -506,6 +506,18 @@ class FinetuningArguments(
+         default=1.0,
+         metadata={"help": "The alpha parameter for EAFT loss to control the power of adaptive weight."},
+     )
++    use_ordinal_loss: bool = field(
++        default=False,
++        metadata={"help": "Whether to add an ordinal consistency loss for ordered class labels."},
++    )
++    ordinal_loss_weight: float = field(
++        default=0.2,
++        metadata={"help": "Weight of the ordinal consistency loss."},
++    )
++    ordinal_tau: float = field(
++        default=1.2,
++        metadata={"help": "Temperature for distance-based ordinal soft targets."},
++    )
+     freeze_vision_tower: bool = field(
+         default=True,
+         metadata={"help": "Whether ot not to freeze the vision tower in MLLM training."},
+diff --git a/src/llamafactory/hparams/parser.py b/src/llamafactory/hparams/parser.py
+index 81762635..18442316 100644
+--- a/src/llamafactory/hparams/parser.py
++++ b/src/llamafactory/hparams/parser.py
+@@ -158,7 +158,8 @@ def _check_extra_dependencies(
+         check_version("mixture-of-depth>=1.1.6", mandatory=True)
+ 
+     if model_args.infer_backend == EngineName.VLLM:
+-        check_version("vllm>=0.4.3,<=0.11.0")
++        # Newer stacks (e.g. 0.14.x with Qwen3-VL) exceed 0.11; keep lower bound only.
++        check_version("vllm>=0.4.3")
+         check_version("vllm", mandatory=True)
+     elif model_args.infer_backend == EngineName.SGLANG:
+         check_version("sglang>=0.4.5")
+diff --git a/src/llamafactory/model/patcher.py b/src/llamafactory/model/patcher.py
+index 52e8ace2..2cce53b6 100644
+--- a/src/llamafactory/model/patcher.py
++++ b/src/llamafactory/model/patcher.py
+@@ -237,6 +237,11 @@ def patch_model(
+     if not model_args.use_unsloth:
+         print_attn_implementation(model.config)
+ 
++    if getattr(model.config, "model_type", None) == "qwen3_vl":
++        from .model_utils.qwen3_vl_blackwell import patch_qwen3_vl_cuda_prod
++
++        patch_qwen3_vl_cuda_prod(model)
++
+     try:
+         model.add_model_tags(["llama-factory"])
+     except Exception:
+diff --git a/src/llamafactory/train/sft/metric.py b/src/llamafactory/train/sft/metric.py
+index 76ef1dec..9fbdaf29 100644
+--- a/src/llamafactory/train/sft/metric.py
++++ b/src/llamafactory/train/sft/metric.py
+@@ -17,6 +17,7 @@
+ # limitations under the License.
+ 
+ from dataclasses import dataclass
++import re
+ from typing import TYPE_CHECKING, Optional
+ 
+ import numpy as np
+@@ -44,6 +45,19 @@ if is_rouge_available():
+     from rouge_chinese import Rouge  # type: ignore
+ 
+ 
++def _extract_grade(text: str) -> Optional[int]:
++    r"""Extract diabetic retinopathy grade from generated text."""
++    explicit = re.search(r"GRADE\s*[:：]?\s*([0-4])\b", text, flags=re.IGNORECASE)
++    if explicit is not None:
++        return int(explicit.group(1))
++
++    fallback = re.search(r"\b([0-4])\b", text)
++    if fallback is not None:
++        return int(fallback.group(1))
++
++    return None
++
++
+ def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "torch.Tensor":
+     r"""Compute the token with the largest likelihood to reduce memory footprint."""
+     if isinstance(logits, (list, tuple)):
+@@ -97,13 +111,66 @@ class ComputeSimilarity:
+         result = None
+         if hasattr(self, "score_dict"):
+             result = {k: float(np.mean(v)) for k, v in self.score_dict.items()}
++            result.update(self._compute_grade_metrics())
+ 
+         self.score_dict = {"rouge-1": [], "rouge-2": [], "rouge-l": [], "bleu-4": []}
++        self.total_examples = 0
++        self.grade_preds = []
++        self.grade_labels = []
+         return result
+ 
+     def __post_init__(self):
+         self._dump()
+ 
++    def _compute_grade_metrics(self) -> dict[str, float]:
++        metrics = {}
++        parsed_count = len(self.grade_labels)
++        metrics["grade_parse_rate"] = float(parsed_count / self.total_examples) if self.total_examples > 0 else 0.0
++        if parsed_count == 0:
++            return metrics
++
++        num_classes = 5
++        confusion = np.zeros((num_classes, num_classes), dtype=np.float64)  # row=true, col=pred
++        for label, pred in zip(self.grade_labels, self.grade_preds):
++            confusion[label, pred] += 1.0
++
++        total = float(confusion.sum())
++        diagonal = np.diag(confusion)
++        metrics["grade_acc"] = float(diagonal.sum() / total) if total > 0 else 0.0
++
++        recalls = []
++        f1_scores = []
++        for grade in range(num_classes):
++            tp = float(confusion[grade, grade])
++            fn = float(confusion[grade, :].sum() - tp)
++            fp = float(confusion[:, grade].sum() - tp)
++            recall = tp / (tp + fn) if tp + fn > 0 else 0.0
++            precision = tp / (tp + fp) if tp + fp > 0 else 0.0
++            f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
++            metrics[f"recall_grade_{grade}"] = recall
++            recalls.append(recall)
++            f1_scores.append(f1)
++
++        metrics["macro_recall"] = float(np.mean(recalls))
++        metrics["macro_f1"] = float(np.mean(f1_scores))
++
++        # Quadratic Weighted Kappa (QWK)
++        weights = np.zeros((num_classes, num_classes), dtype=np.float64)
++        denom = float((num_classes - 1) ** 2)
++        for i in range(num_classes):
++            for j in range(num_classes):
++                weights[i, j] = ((i - j) ** 2) / denom
++
++        hist_true = confusion.sum(axis=1)
++        hist_pred = confusion.sum(axis=0)
++        observed = confusion / total if total > 0 else np.zeros_like(confusion)
++        expected = np.outer(hist_true, hist_pred) / (total**2) if total > 0 else np.zeros_like(confusion)
++        observed_weighted = float(np.sum(weights * observed))
++        expected_weighted = float(np.sum(weights * expected))
++        metrics["qwk"] = 1.0 - observed_weighted / expected_weighted if expected_weighted > 0 else 0.0
++
++        return metrics
++
+     def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[dict[str, float]]:
+         preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+ 
+@@ -112,6 +179,7 @@ class ComputeSimilarity:
+ 
+         decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
++        self.total_examples += len(decoded_labels)
+ 
+         for pred, label in zip(decoded_preds, decoded_labels):
+             hypothesis = list(jieba.cut(pred))
+@@ -130,5 +198,11 @@ class ComputeSimilarity:
+             bleu_score = sentence_bleu([list(label)], list(pred), smoothing_function=SmoothingFunction().method3)
+             self.score_dict["bleu-4"].append(round(bleu_score * 100, 4))
+ 
++            pred_grade = _extract_grade(pred)
++            label_grade = _extract_grade(label)
++            if pred_grade is not None and label_grade is not None:
++                self.grade_preds.append(pred_grade)
++                self.grade_labels.append(label_grade)
++
+         if compute_result:
+             return self._dump()
+diff --git a/src/llamafactory/train/sft/trainer.py b/src/llamafactory/train/sft/trainer.py
+index 7726b395..374d2140 100644
+--- a/src/llamafactory/train/sft/trainer.py
++++ b/src/llamafactory/train/sft/trainer.py
+@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
+ 
+ import numpy as np
+ import torch
++import torch.nn.functional as F
+ from transformers import Seq2SeqTrainer
+ from typing_extensions import override
+ 
+@@ -44,6 +45,34 @@ if TYPE_CHECKING:
+ logger = logging.get_logger(__name__)
+ 
+ 
++def _normalize_token_sequences_for_decode(raw: list) -> list[list[int]]:
++    r"""Ensure each row is ``List[int]`` for ``batch_decode``.
++
++    Some multimodal Arrow datasets store nested structures per row; flatten one level when needed.
++    """
++    out: list[list[int]] = []
++    for seq in raw:
++        if seq is None:
++            out.append([])
++            continue
++        if isinstance(seq, np.ndarray):
++            seq = seq.tolist()
++        if len(seq) == 0:
++            out.append([])
++            continue
++        if isinstance(seq[0], (list, tuple)):
++            flat: list[int] = []
++            for item in seq:
++                if isinstance(item, (list, tuple, np.ndarray)):
++                    flat.extend(int(x) for x in item)
++                else:
++                    flat.append(int(item))
++            out.append(flat)
++        else:
++            out.append([int(x) for x in seq])
++    return out
++
++
+ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+     r"""Inherits Seq2SeqTrainer to compute generative metrics such as BLEU and ROUGE."""
+ 
+@@ -71,6 +100,8 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+             self.model_accepts_loss_kwargs = False
+ 
+         self.finetuning_args = finetuning_args
++        self.grade_token_ids: Optional[list[int]] = None
++        self.ordinal_target_matrix: Optional["torch.Tensor"] = None
+         if gen_kwargs is not None:
+             # https://github.com/huggingface/transformers/blob/v4.45.0/src/transformers/trainer_seq2seq.py#L287
+             self._gen_kwargs = gen_kwargs
+@@ -124,9 +155,37 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+                 asft_alpha=finetuning_args.asft_alpha,
+             )
+ 
++        if finetuning_args.use_ordinal_loss:
++            self._init_ordinal_loss()
++
+         if training_args.fp8 and hasattr(self, "accelerator"):  # verify FP8 status after trainer initialization
+             verify_fp8_status(self.accelerator, training_args)
+ 
++    def _init_ordinal_loss(self) -> None:
++        grade_token_ids = []
++        for grade in range(5):
++            token_ids = self.processing_class.encode(str(grade), add_special_tokens=False)
++            if len(token_ids) != 1:
++                logger.warning_rank0(
++                    f"Ordinal loss disabled: grade token `{grade}` does not map to a single token: {token_ids}."
++                )
++                return
++            grade_token_ids.append(int(token_ids[0]))
++
++        tau = max(float(self.finetuning_args.ordinal_tau), 1e-6)
++        target_matrix = []
++        for y in range(5):
++            distances = torch.tensor([abs(k - y) for k in range(5)], dtype=torch.float32)
++            probs = torch.softmax(-tau * distances, dim=0)
++            target_matrix.append(probs)
++
++        self.grade_token_ids = grade_token_ids
++        self.ordinal_target_matrix = torch.stack(target_matrix, dim=0)
++        logger.info_rank0(
++            f"Enabled ordinal loss with grade_token_ids={self.grade_token_ids}, "
++            f"weight={self.finetuning_args.ordinal_loss_weight}, tau={self.finetuning_args.ordinal_tau}."
++        )
++
+     @override
+     def create_optimizer(self) -> "torch.optim.Optimizer":
+         if self.optimizer is None:
+@@ -148,7 +207,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+         return super()._get_train_sampler(*args, **kwargs)
+ 
+     @override
+-    def compute_loss(self, model, inputs, *args, **kwargs):
++    def compute_loss(self, model, inputs, return_outputs: bool = False, *args, **kwargs):
+         if self.finetuning_args.use_asft_loss:
+             with torch.no_grad():
+                 ref_outputs = self.ref_model(
+@@ -157,9 +216,47 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+                 )
+                 ref_logits = ref_outputs.logits
+             outputs = model(**inputs)
+-            return self.compute_loss_func(outputs, inputs["labels"], ref_logits)
++            loss = self.compute_loss_func(outputs, inputs["labels"], ref_logits)
++            return (loss, outputs) if return_outputs else loss
+         else:
+-            return super().compute_loss(model, inputs, *args, **kwargs)
++            outputs = model(**inputs)
++            base_loss = outputs.loss if hasattr(outputs, "loss") and outputs.loss is not None else None
++            if base_loss is None:
++                return super().compute_loss(model, inputs, return_outputs=return_outputs, *args, **kwargs)
++
++            if (
++                not self.finetuning_args.use_ordinal_loss
++                or self.grade_token_ids is None
++                or self.ordinal_target_matrix is None
++                or "labels" not in inputs
++            ):
++                return (base_loss, outputs) if return_outputs else base_loss
++
++            labels = inputs["labels"]
++            logits = outputs.logits
++            if logits is None:
++                return (base_loss, outputs) if return_outputs else base_loss
++
++            # Align with CausalLM token prediction (predict token t+1 from position t).
++            shift_logits = logits[..., :-1, :].contiguous()
++            shift_labels = labels[..., 1:].contiguous()
++            valid_mask = shift_labels != IGNORE_INDEX
++            if not torch.any(valid_mask):
++                return (base_loss, outputs) if return_outputs else base_loss
++
++            grade_ids = torch.tensor(self.grade_token_ids, device=shift_labels.device, dtype=shift_labels.dtype)
++            is_grade = valid_mask.unsqueeze(-1) & (shift_labels.unsqueeze(-1) == grade_ids.view(1, 1, -1))
++            has_grade = torch.any(is_grade, dim=-1)
++            if not torch.any(has_grade):
++                return (base_loss, outputs) if return_outputs else base_loss
++
++            true_grade = torch.argmax(is_grade.long(), dim=-1)[has_grade]
++            selected_logits = shift_logits[has_grade][:, self.grade_token_ids]
++            log_probs = F.log_softmax(selected_logits, dim=-1)
++            target = self.ordinal_target_matrix.to(device=log_probs.device, dtype=log_probs.dtype)[true_grade]
++            ordinal_loss = -(target * log_probs).sum(dim=-1).mean()
++            total_loss = base_loss + float(self.finetuning_args.ordinal_loss_weight) * ordinal_loss
++            return (total_loss, outputs) if return_outputs else total_loss
+ 
+     @override
+     def prediction_step(
+@@ -215,7 +312,8 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
+             if len(pad_len):  # move pad token to last
+                 preds[i] = np.concatenate((preds[i][pad_len[0] :], preds[i][: pad_len[0]]), axis=-1)
+ 
+-        decoded_inputs = self.processing_class.batch_decode(dataset["input_ids"], skip_special_tokens=False)
++        input_ids_col = _normalize_token_sequences_for_decode(dataset["input_ids"])
++        decoded_inputs = self.processing_class.batch_decode(input_ids_col, skip_special_tokens=False)
+         decoded_preds = self.processing_class.batch_decode(preds, skip_special_tokens=skip_special_tokens)
+         decoded_labels = self.processing_class.batch_decode(labels, skip_special_tokens=skip_special_tokens)
+ 

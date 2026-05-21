@@ -1,0 +1,38 @@
+experiments:
+  l3_zh_cot_baseline_step1:
+    legacy_name: l3_targeted_calib_v3_full
+    role: Chinese CoT L3 targeted calibration for MA/HE/EX/SE.
+    train_config: configs/train/l3_zh_cot_baseline_step1_targeted_calib.yaml
+    data_stats: manifests/datasets/l3_zh_cot_baseline_step1_stats.json
+    output_path_reference: saves/qwen3-vl-8b-fundus/lora/l3_targeted_calib_v3_full
+
+  l3_zh_cot_baseline_step2:
+    legacy_name: l3_six_lesion_calib_pilot
+    role: Chinese CoT six-lesion balanced L3 baseline.
+    train_config: configs/train/l3_zh_cot_baseline_step2_six_lesion.yaml
+    data_stats: manifests/datasets/l3_zh_cot_baseline_step2_stats.json
+    output_path_reference: saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot
+
+  l3_en_cot_incomplete_step2_only:
+    legacy_name: v8_l3_v3flow_v7cot
+    role: Incomplete English CoT control. It rewrites only the six-lesion step and should not be used as the main English L3 baseline.
+    train_config: configs/train/l3_en_cot_incomplete_step2_only_do_not_use_as_main.yaml
+    data_stats: manifests/datasets/l3_en_cot_incomplete_step2_only_stats.json
+
+  l4_zh_cot_pipeline_baseline:
+    legacy_name: l4_unified_lesion_cot_v3
+    role: Current validated L4 DR grading baseline based on Chinese L3.
+    train_config: configs/train/l4_zh_cot_pipeline_baseline.yaml
+    data_stats: manifests/datasets/l4_zh_cot_pipeline_baseline_stats.json
+    output_path_reference: saves/qwen3-vl-8b-fundus/lora/l4_unified_lesion_cot_v3
+
+next_mainline:
+  l3_en_cot_baseline_step1:
+    status: planned
+    description: Rewrite and train the targeted-calibration step in English CoT format from stage1_pilot.
+  l3_en_cot_baseline_step2:
+    status: planned
+    description: Continue from English step1 and train the six-lesion calibration step in English CoT format.
+  l2_l3_l4_en_pipeline:
+    status: planned
+    description: Train the full L2 -> English L3 -> English L4 pipeline after English L3 is validated.

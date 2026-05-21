@@ -1,0 +1,30 @@
+external_data_roots:
+  images:
+    - data/FGADR
+    - data/DDR-dataset
+    - data/idrid
+    - data/messidor-2
+    - data/cropped
+    - data/processed_images  # processed APTOS images
+  labels:
+    - data/DR_grading.csv
+    - data/messidor_data.csv
+    - data/idrid_old/idrid_labels.csv
+
+generated_annotation_files:
+  validated_clean:
+    path: data/fundus_validated/validated_clean.jsonl
+    stats: manifests/datasets/validated_clean_stats.json
+  l3_zh_step1:
+    path: data/annotation/fundus_l3_targeted_calib_v3_full_sft.jsonl
+    stats: manifests/datasets/l3_zh_cot_baseline_step1_stats.json
+  l3_zh_step2:
+    path: data/annotation/fundus_l3_six_lesion_calib_pilot_sft.jsonl
+    stats: manifests/datasets/l3_zh_cot_baseline_step2_stats.json
+  l4_zh_pipeline:
+    path: data/annotation/fundus_l4_unified_lesion_cot_v3_sft.jsonl
+    stats: manifests/datasets/l4_zh_cot_pipeline_baseline_stats.json
+
+notes:
+  - Large JSONL files are not committed. Regenerate them from scripts or transfer them through object storage/Hugging Face Dataset.
+  - Keep the same relative paths under LLaMA-Factory when running configs unchanged.

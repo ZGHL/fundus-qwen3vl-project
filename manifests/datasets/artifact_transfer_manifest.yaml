@@ -1,0 +1,67 @@
+artifact_groups:
+  minimal_english_l3_work:
+    description: Minimal files needed to rebuild English CoT L3 from the validated Chinese L3 path.
+    include:
+      - data/fundus_validated/validated_clean.jsonl
+      - data/fundus_validated/validated_clean.stats.json
+      - data/annotation/fundus_l3_targeted_calib_v3_full_sft.jsonl
+      - data/annotation/fundus_l3_targeted_calib_v3_full_stats.json
+      - data/annotation/fundus_l3_six_lesion_calib_pilot_sft.jsonl
+      - data/annotation/fundus_l3_six_lesion_calib_pilot_stats.json
+      - data/annotation/fundus_l3_presence_holdout80_sft.jsonl
+      - data/annotation/fundus_l3_nv_single_holdout_sft.jsonl
+      - data/annotation/fundus_l3_irma_single_holdout_sft.jsonl
+      - data/annotation/dataset_info.json
+    requires_images: true
+
+  full_generated_annotations:
+    description: Compact generated annotation package, including cleaned evidence, SFT JSONL/CoT samples, evaluation JSONL, and stats. Recommended to upload directly.
+    include:
+      - data/fundus_validated/
+      - data/annotation/
+      - data/annotation_v4/
+      - reports/retsam_aptos_stats/
+      - reports/retsam_ddr_subset789_stats/
+      - reports/retsam_aptos_run_report/*.stats.json
+      - reports/retsam_ddr_subset789_run_report/*.stats.json
+    approximate_size: 750MB_to_1GB
+
+  raw_images_and_labels:
+    description: Original image roots and label files. Keep external, do not commit.
+    include:
+      - data/FGADR/
+      - data/DDR-dataset/
+      - data/idrid/
+      - data/messidor-2/
+      - data/DR_grading.csv
+      - data/messidor_data.csv
+      - data/idrid_old/idrid_labels.csv
+    approximate_size: 21GB
+
+  cropped_and_aptos_processed_images:
+    description: Cropped fundus images plus processed APTOS images. Transfer if you do not want to regenerate preprocessing.
+    include:
+      - data/cropped/
+      - data/processed_images/  # processed APTOS images
+    approximate_size: 43GB
+
+  retsam_raw_outputs:
+    description: Raw RetSAM outputs for audit/regeneration. Optional if validated_clean is trusted.
+    include:
+      - outputs/retsam_*/
+    approximate_size_current_visible: 160MB
+
+  key_adapters:
+    description: Existing baseline adapters. Transfer only if continuing/evaluating old baselines.
+    include:
+      - saves/qwen3-vl-8b-fundus/lora/stage1_pilot/
+      - saves/qwen3-vl-8b-fundus/lora/l3_targeted_calib_v3_full/
+      - saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot/
+      - saves/qwen3-vl-8b-fundus/lora/l4_unified_lesion_cot_v3/
+    approximate_size: 15GB
+
+recommended_storage:
+  annotations: Hugging Face private Dataset repo or object storage
+  base_models: Hugging Face model download on server
+  adapters: Hugging Face private Model repo or object storage
+  images: object storage, NAS, or external disk

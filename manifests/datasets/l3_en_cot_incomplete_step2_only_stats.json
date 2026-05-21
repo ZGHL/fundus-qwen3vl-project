@@ -1,0 +1,59 @@
+{
+  "version": "fundus_l3_v7_v3dist_v6cot",
+  "design": [
+    "v3_six_lesion_balanced_distribution",
+    "v6_four_section_explicit_cot",
+    "single_lesion_l3_only",
+    "no_dr_grade_output"
+  ],
+  "source": "data/annotation/fundus_l3_six_lesion_calib_pilot_sft.jsonl",
+  "seed": 20260519,
+  "train": {
+    "n": 7200,
+    "tasks": {
+      "L3_HE": 1200,
+      "L3_MA": 1200,
+      "L3_SE": 1200,
+      "L3_EX": 1200,
+      "L3_IRMA": 1200,
+      "L3_NV": 1200
+    },
+    "present": {
+      "('L3_EX', 'absent')": 600,
+      "('L3_EX', 'present')": 600,
+      "('L3_HE', 'absent')": 600,
+      "('L3_HE', 'present')": 600,
+      "('L3_IRMA', 'absent')": 600,
+      "('L3_IRMA', 'present')": 600,
+      "('L3_MA', 'absent')": 600,
+      "('L3_MA', 'present')": 600,
+      "('L3_NV', 'absent')": 600,
+      "('L3_NV', 'present')": 600,
+      "('L3_SE', 'absent')": 600,
+      "('L3_SE', 'present')": 600
+    },
+    "sources": {
+      "('L3_EX', 'cleaning_rule')": 125,
+      "('L3_EX', 'grade0_rule_negative')": 201,
+      "('L3_EX', 'retsam_negative')": 223,
+      "('L3_EX', 'strong_mask')": 135,
+      "('L3_EX', 'strong_mask_stage1_easy')": 5,
+      "('L3_EX', 'validated_retsam')": 511,
+      "('L3_HE', 'cleaning_rule')": 194,
+      "('L3_HE', 'grade0_rule_negative')": 242,
+      "('L3_HE', 'retsam_negative')": 127,
+      "('L3_HE', 'strong_mask')": 152,
+      "('L3_HE', 'strong_mask_stage1_easy')": 4,
+      "('L3_HE', 'validated_retsam')": 481,
+      "('L3_IRMA', 'strong_mask')": 1200,
+      "('L3_MA', 'grade0_rule_negative')": 464,
+      "('L3_MA', 'strong_mask')": 704,
+      "('L3_MA', 'strong_mask_stage1_easy')": 32,
+      "('L3_NV', 'strong_mask')": 1200,
+      "('L3_SE', 'cleaning_rule')": 600,
+      "('L3_SE', 'strong_mask')": 197,
+      "('L3_SE', 'strong_mask_stage1_easy')": 7,
+      "('L3_SE', 'validated_retsam')": 396
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "n": 23253,
+  "tasks": {
+    "L3_EX_single": 9052,
+    "L3_SE_single": 2812,
+    "L3_MA_single": 2112,
+    "L3_HE_single": 9277
+  },
+  "present": {
+    "('EX', False)": 4526,
+    "('SE', False)": 1600,
+    "('MA', False)": 1200,
+    "('HE', True)": 4964,
+    "('MA', True)": 912,
+    "('EX', True)": 4526,
+    "('SE', True)": 1212,
+    "('HE', False)": 4313
+  },
+  "sources": {
+    "('EX', False, 'retsam_negative')": 1712,
+    "('SE', False, 'cleaning_rule')": 1600,
+    "('MA', False, 'grade0_rule_negative')": 922,
+    "('HE', True, 'validated_retsam')": 4036,
+    "('MA', True, 'fgadr_lesion_only_sft_v3')": 867,
+    "('EX', True, 'validated_retsam')": 3705,
+    "('SE', True, 'validated_retsam')": 810,
+    "('SE', True, 'fgadr_lesion_only_sft_v3')": 382,
+    "('HE', False, 'cleaning_rule')": 1331,
+    "('HE', False, 'grade0_rule_negative')": 1765,
+    "('HE', False, 'retsam_negative')": 955,
+    "('EX', False, 'grade0_rule_negative')": 1540,
+    "('HE', True, 'fgadr_lesion_only_sft_v3')": 884,
+    "('EX', True, 'fgadr_lesion_only_sft_v3')": 776,
+    "('HE', True, 'strong_mask_stage1_easy')": 44,
+    "('MA', True, 'strong_mask_stage1_easy')": 45,
+    "('EX', False, 'cleaning_rule')": 905,
+    "('EX', False, 'fgadr_lesion_only_sft_v3')": 369,
+    "('HE', False, 'fgadr_lesion_only_sft_v3')": 261,
+    "('EX', True, 'strong_mask_stage1_easy')": 45,
+    "('MA', False, 'fgadr_lesion_only_sft_v3')": 278,
+    "('SE', True, 'strong_mask_stage1_easy')": 20,
+    "('HE', False, 'strong_mask_stage1_easy')": 1
+  },
+  "datasets": {
+    "('EX', False, 'fgadr_seg::all')": 559,
+    "('SE', False, 'ddr_grading::all')": 1022,
+    "('MA', False, 'aptos::all')": 867,
+    "('HE', True, 'ddr_grading::all')": 2027,
+    "('MA', True, 'fgadr_seg::all')": 867,
+    "('EX', True, 'ddr_grading::all')": 1905,
+    "('SE', True, 'aptos::all')": 314,
+    "('HE', True, 'aptos::all')": 1267,
+    "('SE', True, 'fgadr_seg::all')": 455,
+    "('HE', False, 'ddr_grading::all')": 2006,
+    "('HE', False, 'aptos::all')": 1690,
+    "('EX', False, 'aptos::all')": 1519,
+    "('HE', True, 'fgadr_seg::all')": 1268,
+    "('SE', True, 'ddr_grading::all')": 402,
+    "('EX', True, 'fgadr_seg::all')": 1042,
+    "('EX', True, 'aptos::all')": 1228,
+    "('EX', False, 'ddr_grading::all')": 2128,
+    "('EX', True, 'ddr_seg::train')": 167,
+    "('EX', False, 'ddr_seg::train')": 174,
+    "('HE', True, 'idrid::train')": 210,
+    "('MA', True, 'idrid::train')": 45,
+    "('HE', True, 'ddr_seg::train')": 192,
+    "('HE', False, 'idrid::train')": 133,
+    "('HE', False, 'ddr_seg::train')": 149,
+    "('SE', False, 'aptos::all')": 299,
+    "('SE', False, 'fgadr_seg::all')": 130,
+    "('EX', True, 'idrid::train')": 184,
+    "('EX', False, 'idrid::train')": 146,
+    "('HE', False, 'fgadr_seg::all')": 335,
+    "('SE', False, 'ddr_seg::train')": 109,
+    "('MA', False, 'fgadr_seg::all')": 288,
+    "('MA', False, 'idrid::train')": 45,
+    "('SE', True, 'idrid::train')": 41,
+    "('SE', False, 'idrid::train')": 40
+  },
+  "output": "data/annotation/fundus_l3_targeted_calib_v3_full_sft.jsonl",
+  "lesion_plan": {
+    "MA": {
+      "positive": 912,
+      "negative": 1200
+    },
+    "HE": {
+      "positive": 4964,
+      "negative": 4313
+    },
+    "EX": {
+      "positive": 4526,
+      "negative": 4526
+    },
+    "SE": {
+      "positive": 1212,
+      "negative": 1600
+    }
+  },
+  "min_pos_confidence": {
+    "SE": 0.7
+  },
+  "lesion_specific_neg_priority": true,
+  "holdout_excluded_records": 80
+}
