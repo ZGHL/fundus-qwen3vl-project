@@ -1,0 +1,23 @@
+hf_dataset_repo: Guohou/fundusAnnotationsV1
+
+current_snapshot:
+  role: full generated annotation snapshot created on 2026-05-21
+  file: fundus_generated_annotations_20260521.tar.gz
+  status: keep_for_restore_only
+
+recommended_native_layout:
+  fundus_validated: data/fundus_validated/
+  annotation_zh_baseline: data/annotation/
+  annotation_v4_and_later: data/annotation_v4/
+  eval_sets: eval/
+  stats: stats/
+  reports: reports/
+
+upload_policy:
+  large_generated_jsonl: upload directly as JSONL or JSONL.GZ to the HF dataset repository
+  small_stats: commit JSON stats directly to GitHub and optionally mirror to HF
+  frozen_release: use HF tags or commit hashes instead of date-only tar names
+
+notes:
+  - Future CoT/SFT files should be uploaded as native files/directories so HF commit history, diffs, and browsing remain useful.
+  - The current tar.gz remains a restore snapshot and should not be the default format for new experiments.

@@ -25,6 +25,9 @@ llamaboard_cache/
 *.csv
 *.tsv
 !manifests/**/*.json
+!manifests/models/
+!manifests/models/*.yaml
+!manifests/datasets/*.yaml
 !reports/metrics/*.json
 generated_predictions.jsonl
 predict_results.json

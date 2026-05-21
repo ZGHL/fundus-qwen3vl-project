@@ -1,0 +1,42 @@
+base_models:
+  qwen3_vl_8b_instruct:
+    path_reference: models/Qwen3-VL-8B-Instruct
+    hf_repo: Qwen/Qwen3-VL-8B-Instruct
+    revision: main
+    role: Main base model.
+    note: Exact HF snapshot revision should be recorded after controlled cloud download.
+
+important_adapters:
+  stage1_pilot:
+    path_reference: saves/qwen3-vl-8b-fundus/lora/stage1_pilot
+    role: Warmup adapter used before L3 targeted calibration.
+    external_storage: null
+  l3_zh_cot_baseline_step1:
+    path_reference: saves/qwen3-vl-8b-fundus/lora/l3_targeted_calib_v3_full
+    role: Chinese CoT targeted calibration adapter.
+    external_storage: null
+  l3_zh_cot_baseline_step2:
+    path_reference: saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot
+    role: Chinese CoT six-lesion L3 baseline adapter.
+    external_storage: null
+  l4_zh_cot_pipeline_baseline:
+    path_reference: saves/qwen3-vl-8b-fundus/lora/l4_unified_lesion_cot_v3
+    role: Current L4 baseline adapter.
+    external_storage: null
+
+adapter_storage_policy:
+  preferred_targets:
+    - Hugging Face private Model repository
+    - Cloudflare R2 under adapters/<experiment_name>/
+  required_manifest_fields_when_uploaded:
+    - experiment_name
+    - adapter_storage_uri
+    - source_checkpoint_or_base_model
+    - train_config
+    - eval_config
+    - sha256_or_manifest_checksum
+    - metric_summary_path
+
+notes:
+  - Do not commit model or adapter weights to Git.
+  - Upload important adapters to a model registry or external storage if cloud continuation is needed.

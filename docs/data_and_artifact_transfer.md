@@ -1,35 +1,136 @@
 # Data and Artifact Transfer Plan
 
-This project should not store training data, images, RetSAM outputs, base models, or LoRA checkpoints in Git. Use Git only for code/configs/patches/manifests. Use object storage, Hugging Face Hub, an external disk, or rsync/scp for large artifacts.
+This project should not store training data, images, RetSAM outputs, base models, or LoRA checkpoints in Git. Use Git only for code/configs/patches/manifests. Use Hugging Face Dataset for generated annotation JSONL files, Cloudflare R2 for images and large binary artifacts, and Hugging Face Model repos or R2 for adapters.
+
+## Current Storage Policy
+
+| Artifact | Preferred storage | Reason |
+|---|---|---|
+| Code, configs, patches, manifests, metrics summaries | GitHub | Small, reviewable, versioned. |
+| Generated annotations, CoT/SFT JSONL, holdout JSONL, stats | Hugging Face Dataset | Versioned data commits, easy download, supports native JSONL layout. |
+| Raw and processed fundus images | Cloudflare R2 object tree | Large, incrementally syncable, can pull only needed subsets. |
+| LoRA adapters and checkpoints | Hugging Face Model repo or R2 | Too large for GitHub; should be referenced by manifest. |
+| Full prediction dumps | Hugging Face Dataset or R2 | Keep only summaries in GitHub. |
 
 ## Artifact Layers
 
 | Layer | Examples | Current size | Recommended handling |
 |---|---|---:|---|
-| L0 original images and labels | `data/FGADR`, `data/DDR-dataset`, `data/idrid`, `data/messidor-2`, label CSVs | about 21G for listed raw datasets | Keep external. Download from source or upload to private storage. |
-| L0 cropped and APTOS processed images | `data/cropped`, `data/processed_images` | about 43G | `data/processed_images` is the processed APTOS image folder; `data/cropped` stores cropped fundus images. Transfer only if you do not want to regenerate preprocessing. |
-| L1 RetSAM raw outputs | `outputs/retsam_*` | about 160M currently visible | Optional. Keep if you need to audit pseudo-labels; otherwise regenerate from RetSAM. |
-| L2 validated evidence | `data/fundus_validated/*.jsonl`, stats | about 55M | Upload directly. This is the key compact evidence layer built from RetSAM plus strong labels. |
-| L3/L4 generated SFT JSONL | `data/annotation`, `data/annotation_v4` | about 683M | Upload directly or regenerate from L2 evidence. These are the actual ShareGPT/SFT samples, including CoT answers. |
-| Evaluation JSONL | L3 holdouts, L4 holdouts, FunBench/Messidor2 SFT files | included in annotation dirs | Upload directly with generated SFT JSONL. |
-| Base model | `models/Qwen3-VL-8B-Instruct` | about 17G | Download from Hugging Face on the server. |
-| LoRA adapters | `stage1_pilot`, `l3_targeted_calib_v3_full`, `l3_six_lesion_calib_pilot`, `l4_unified_lesion_cot_v3` | about 15.3G total | Upload only if you need to continue/evaluate old baselines. Otherwise retrain. |
-| Full experiment outputs | old `saves/*predict*`, logs | large/noisy | Do not transfer wholesale. Keep selected metrics in Git. |
+| L0 original images and labels | `data/FGADR`, `data/DDR-dataset`, `data/idrid`, `data/messidor-2`, label CSVs | about 21G for listed raw datasets | Keep external. Store as R2 directory objects, not a repeatedly rebuilt tar. |
+| L0 cropped and APTOS processed images | `data/cropped`, `data/processed_images` | about 43G | `data/processed_images` is the processed APTOS image folder; store as R2 directory objects. |
+| L1 RetSAM raw outputs | `outputs/retsam_*` | about 160M currently visible | Optional. Keep if auditing pseudo-labels; otherwise regenerate from RetSAM. |
+| L2 validated evidence | `data/fundus_validated/*.jsonl`, stats | about 55M | Upload as native JSONL/JSON files to Hugging Face Dataset. |
+| L3/L4 generated SFT JSONL | `data/annotation`, `data/annotation_v4` | about 683M | Upload as native JSONL/JSONL.GZ files to Hugging Face Dataset. |
+| Evaluation JSONL | L3 holdouts, L4 holdouts, FunBench/Messidor2 SFT files | included in annotation dirs | Upload with generated SFT JSONL. |
+| Base model | `models/Qwen3-VL-8B-Instruct` | about 17G | Download from Hugging Face on the server; record repo and revision in `manifests/models/base_models.yaml`. |
+| LoRA adapters | selected `saves/qwen3-vl-8b-fundus/lora/*` | variable | Upload only important adapters to HF Model repo or R2; record URI and checksum. |
+| Full experiment outputs | old prediction dumps, long logs | large/noisy | Do not transfer wholesale. Keep selected metrics in GitHub. |
 
-## What Is `fundus_generated_annotations`?
+## Current Snapshot Artifacts
 
-`fundus_generated_annotations` is the compact data package containing generated annotation assets, not raw images. It includes:
+The following existing files are valid frozen restore snapshots and should be kept:
 
-- cleaned RetSAM/strong-label evidence: `data/fundus_validated/`
-- generated SFT/ShareGPT JSONL files: `data/annotation/`, `data/annotation_v4/`
-- CoT training samples and evaluation samples
-- dataset stats and RetSAM filtering stats
+```text
+HF Dataset: Guohou/fundusAnnotationsV1/fundus_generated_annotations_20260521.tar.gz
+R2: images/fundus_image_dataset_20260521.tar
+```
 
-This package is what lets a new server train/evaluate without regenerating every JSONL file. It still requires the referenced image files to exist at the same relative paths.
+They are useful for restoring the exact 2026-05-21 state. They should not be the default format for future updates.
+
+## R2 Image Strategy: Directory Sync
+
+Future image updates should use R2 as an object tree. This avoids rebuilding and re-uploading a 63 GiB tar file after every small change.
+
+Recommended R2 layout:
+
+```text
+r2:fundusv1/images/FGADR/
+r2:fundusv1/images/DDR-dataset/
+r2:fundusv1/images/idrid/
+r2:fundusv1/images/messidor-2/
+r2:fundusv1/images/cropped/
+r2:fundusv1/images/aptos_processed/
+r2:fundusv1/labels/DR_grading.csv
+r2:fundusv1/labels/messidor_data.csv
+r2:fundusv1/labels/idrid_old/idrid_labels.csv
+```
+
+Example upload from the LLaMA-Factory root:
+
+```bash
+rclone sync data/FGADR/ r2:fundusv1/images/FGADR/ -P --transfers 32
+rclone sync data/DDR-dataset/ r2:fundusv1/images/DDR-dataset/ -P --transfers 32
+rclone sync data/idrid/ r2:fundusv1/images/idrid/ -P --transfers 32
+rclone sync data/messidor-2/ r2:fundusv1/images/messidor-2/ -P --transfers 32
+rclone sync data/cropped/ r2:fundusv1/images/cropped/ -P --transfers 32
+rclone sync data/processed_images/ r2:fundusv1/images/aptos_processed/ -P --transfers 32
+```
+
+Example partial restore on a VM:
+
+```bash
+mkdir -p /workspace/LLaMA-Factory/data
+rclone copy r2:fundusv1/images/idrid/ /workspace/LLaMA-Factory/data/idrid/ -P
+rclone copy r2:fundusv1/images/FGADR/ /workspace/LLaMA-Factory/data/FGADR/ -P
+```
+
+Use the 63 GiB tar only when a full cold restore is simpler than subset sync.
+
+## Hugging Face Annotation Strategy: Native Files
+
+`fundus_generated_annotations_20260521.tar.gz` remains a valid frozen snapshot. New CoT/SFT/evaluation files should be uploaded directly to the Hugging Face Dataset repository as JSONL/JSONL.GZ files or directories.
+
+Recommended layout inside the dataset repo:
+
+```text
+data/fundus_validated/
+data/annotation/
+data/annotation_v4/
+eval/
+stats/
+reports/
+```
+
+Example upload:
+
+```bash
+hf upload Guohou/fundusAnnotationsV1 data/annotation_v4/ data/annotation_v4/ --repo-type dataset --commit-message "Add English L3 CoT annotation files"
+hf upload Guohou/fundusAnnotationsV1 data/fundus_validated/ data/fundus_validated/ --repo-type dataset --commit-message "Update validated fundus evidence"
+```
+
+For a new experiment, update GitHub manifests with the HF file path, sample count, lesion distribution, and expected image roots.
+
+## Returning Results From A VM
+
+After training, keep GitHub small and push only reproducibility metadata:
+
+```bash
+cd /workspace/fundus-qwen3vl-project
+git pull
+git add configs manifests reports scripts
+git commit -m "Record <experiment_name> results"
+git push
+```
+
+Upload large adapters to R2 or a Hugging Face Model repo. Example R2 path:
+
+```bash
+EXP=<experiment_name>
+rclone copy /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/$EXP/   r2:fundusv1/adapters/$EXP/ -P --transfers 16
+```
+
+Upload large prediction dumps separately:
+
+```bash
+EXP=<experiment_name>
+rclone copy /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/$EXP/generated_predictions.jsonl   r2:fundusv1/predictions/$EXP/ -P
+```
+
+Then record the adapter/prediction URI and checksum in `manifests/experiments/experiment_registry.yaml` or a dedicated experiment manifest.
 
 ## Minimal Cloud Package
 
-For continuing the new English CoT L3 work, the minimal external package is:
+For continuing the English CoT L3 work, the minimal external annotation package is:
 
 ```text
 data/fundus_validated/validated_clean.jsonl
@@ -44,94 +145,16 @@ data/annotation/fundus_l3_irma_single_holdout_sft.jsonl
 data/annotation/dataset_info.json
 ```
 
-Also provide image roots referenced by those JSONL files. If paths are unchanged under LLaMA-Factory, configs run without edits.
-
-## Recommended Full Generated-Annotation Package
-
-For complete reproducibility without regenerating JSONL/CoT samples. This package does not mean raw images; it contains compact generated annotation files, cleaned evidence, SFT JSONL, evaluation JSONL, and RetSAM stats:
-
-```text
-data/fundus_validated/
-data/annotation/
-data/annotation_v4/
-reports/retsam_*_stats/
-reports/retsam_*_run_report/*.stats.json
-```
-
-This is under 1G excluding images and checkpoints, so it is reasonable to archive and upload.
-
-## Suggested Archive Commands
-
-From the current LLaMA-Factory root:
-
-```bash
-cd /workspace/LLaMA-Factory
-mkdir -p /workspace/artifacts
-
-tar -czf /workspace/artifacts/fundus_generated_annotations_$(date +%Y%m%d).tar.gz \
-  data/fundus_validated \
-  data/annotation \
-  data/annotation_v4 \
-  reports/retsam_aptos_stats \
-  reports/retsam_ddr_subset789_stats \
-  reports/retsam_aptos_run_report/*.stats.json \
-  reports/retsam_ddr_subset789_run_report/*.stats.json
-```
-
-Images can be packaged separately:
-
-```bash
-tar -czf /workspace/artifacts/fundus_images_raw_$(date +%Y%m%d).tar.gz \
-  data/FGADR data/DDR-dataset data/idrid data/messidor-2 \
-  data/DR_grading.csv data/messidor_data.csv data/idrid_old/idrid_labels.csv
-```
-
-Cropped images and processed APTOS images are optional:
-
-```bash
-tar -czf /workspace/artifacts/fundus_cropped_and_aptos_processed_images_$(date +%Y%m%d).tar.gz \
-  data/cropped data/processed_images
-```
-
-Important adapters can be packaged separately:
-
-```bash
-tar -czf /workspace/artifacts/fundus_key_adapters_$(date +%Y%m%d).tar.gz \
-  saves/qwen3-vl-8b-fundus/lora/stage1_pilot \
-  saves/qwen3-vl-8b-fundus/lora/l3_targeted_calib_v3_full \
-  saves/qwen3-vl-8b-fundus/lora/l3_six_lesion_calib_pilot \
-  saves/qwen3-vl-8b-fundus/lora/l4_unified_lesion_cot_v3
-```
-
-## Pulling On A New Server
-
-After downloading archives to the server:
-
-```bash
-cd /workspace/LLaMA-Factory
-tar -xzf /workspace/artifacts/fundus_generated_annotations_YYYYMMDD.tar.gz
-tar -xzf /workspace/artifacts/fundus_images_raw_YYYYMMDD.tar.gz
-# optional
-tar -xzf /workspace/artifacts/fundus_cropped_and_aptos_processed_images_YYYYMMDD.tar.gz
-# optional
-tar -xzf /workspace/artifacts/fundus_key_adapters_YYYYMMDD.tar.gz
-```
-
-Then sync project files:
-
-```bash
-cd /workspace/fundus-qwen3vl-project
-bash scripts/setup/apply_llamafactory_patches.sh /workspace/LLaMA-Factory
-bash scripts/setup/sync_project_files.sh /workspace/LLaMA-Factory
-```
+Also provide the image roots referenced by those JSONL files. If paths are unchanged under LLaMA-Factory, configs run without edits.
 
 ## Storage Choices
 
 Recommended order:
 
-1. Hugging Face private Dataset repo for annotation JSONL and small stats.
-2. Hugging Face private Model repo or object storage for LoRA adapters.
-3. Object storage, NAS, or external disk for image archives.
-4. rsync/scp only for one-off migration.
+1. GitHub for lightweight project state.
+2. Hugging Face private Dataset repo for annotation JSONL, evaluation JSONL, and stats.
+3. Cloudflare R2 object tree for raw and processed images.
+4. Hugging Face private Model repo or R2 for LoRA adapters.
+5. rsync/scp only for one-off migration.
 
-Do not use GitHub Releases for the full image dataset unless the files are small and stable; it is less convenient for repeated training.
+Do not use GitHub Releases for the full image dataset unless files are small and stable.

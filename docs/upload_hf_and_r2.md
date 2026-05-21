@@ -2,222 +2,153 @@
 
 This project uses two external artifact stores:
 
-1. Hugging Face private Dataset repo for compact generated annotations/CoT JSONL.
-2. Cloudflare R2 bucket for the full image dataset archive.
+1. Hugging Face private Dataset repo for generated annotations, CoT/SFT JSONL files, evaluation JSONL files, and stats.
+2. Cloudflare R2 bucket for raw/processed fundus images, large prediction dumps, and optional adapters.
 
-Generated local artifacts:
+## Current Frozen Snapshots
 
-```text
-/workspace/artifacts/fundus_transfer_20260521/fundus_generated_annotations_20260521.tar.gz
-/workspace/artifacts/fundus_transfer_20260521/fundus_generated_annotations_20260521.tar.gz.sha256
-/workspace/artifacts/fundus_transfer_20260521/fundus_generated_annotations.filelist.txt
-
-/workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset_20260521.tar
-/workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset_20260521.tar.sha256
-/workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset.filelist.txt
-```
-
-## Hugging Face Dataset Repo
-
-Recommended repo:
+The current 2026-05-21 uploads are frozen restore snapshots:
 
 ```text
-<HF_USERNAME_OR_ORG>/fundus-qwen3vl-generated-annotations
+HF Dataset: Guohou/fundusAnnotationsV1/fundus_generated_annotations_20260521.tar.gz
+R2: fundusv1/images/fundus_image_dataset_20260521.tar
 ```
 
-Recommended visibility: private.
+Keep them for exact restoration. Do not use this tar-based pattern as the default for new iterative updates.
 
-Recommended files:
+## Hugging Face Dataset: Future Native Layout
+
+Repository:
 
 ```text
-fundus_generated_annotations_20260521.tar.gz
-fundus_generated_annotations_20260521.tar.gz.sha256
-fundus_generated_annotations.filelist.txt
-README.md
+Guohou/fundusAnnotationsV1
 ```
 
-Suggested dataset card text:
+Recommended future layout:
 
-```markdown
-# Fundus Qwen3-VL Generated Annotations
-
-Compact generated annotation package for Qwen3-VL fundus fine-tuning.
-
-This repo contains generated data assets only:
-- cleaned RetSAM/strong-label evidence
-- ShareGPT/SFT JSONL files
-- CoT training samples
-- L3/L4 evaluation JSONL files
-- RetSAM cleaning/statistics files
-
-It does not contain raw fundus images or model weights. The image archive is stored separately in Cloudflare R2.
+```text
+data/fundus_validated/
+data/annotation/
+data/annotation_v4/
+eval/
+stats/
+reports/
 ```
 
-Upload with `huggingface_hub`:
+Upload new generated CoT/SFT/evaluation files directly as JSONL, JSONL.GZ, or normal directories:
 
 ```bash
-pip install -U huggingface_hub
-huggingface-cli login
+hf upload Guohou/fundusAnnotationsV1 data/annotation_v4/ data/annotation_v4/   --repo-type dataset   --commit-message "Add English L3 CoT annotation files"
 
-python - <<PY
-from huggingface_hub import HfApi, create_repo
-from pathlib import Path
-
-repo_id = "<HF_USERNAME_OR_ORG>/fundus-qwen3vl-generated-annotations"
-artifact_dir = Path("/workspace/artifacts/fundus_transfer_20260521")
-
-create_repo(repo_id, repo_type="dataset", private=True, exist_ok=True)
-api = HfApi()
-for name in [
-    "fundus_generated_annotations_20260521.tar.gz",
-    "fundus_generated_annotations_20260521.tar.gz.sha256",
-    "fundus_generated_annotations.filelist.txt",
-    "ANNOTATION_PACKAGE_CONTENTS.txt",
-]:
-    api.upload_file(
-        path_or_fileobj=artifact_dir / name,
-        path_in_repo=name,
-        repo_id=repo_id,
-        repo_type="dataset",
-    )
-PY
+hf upload Guohou/fundusAnnotationsV1 data/fundus_validated/ data/fundus_validated/   --repo-type dataset   --commit-message "Update validated fundus evidence"
 ```
 
 Download on a new server:
 
 ```bash
-pip install -U huggingface_hub
-huggingface-cli login
-
-huggingface-cli download \
-  <HF_USERNAME_OR_ORG>/fundus-qwen3vl-generated-annotations \
-  --repo-type dataset \
-  --local-dir /workspace/artifacts/fundus_generated_annotations
-
-cd /workspace/artifacts/fundus_generated_annotations
-sha256sum -c fundus_generated_annotations_20260521.tar.gz.sha256
-cd /workspace/LLaMA-Factory
-tar -xzf /workspace/artifacts/fundus_generated_annotations/fundus_generated_annotations_20260521.tar.gz
+mkdir -p /workspace/artifacts/fundus_annotations
+hf download Guohou/fundusAnnotationsV1   --repo-type dataset   --local-dir /workspace/artifacts/fundus_annotations
 ```
 
-## Cloudflare R2 Bucket
+If restoring the frozen snapshot:
 
-Recommended bucket:
+```bash
+cd /workspace/artifacts/fundus_annotations
+sha256sum -c fundus_generated_annotations_20260521.tar.gz.sha256
+cd /workspace/LLaMA-Factory
+tar -xzf /workspace/artifacts/fundus_annotations/fundus_generated_annotations_20260521.tar.gz
+```
+
+## R2: Future Directory Layout
+
+Bucket:
 
 ```text
 fundusv1
 ```
 
-Recommended prefix layout:
+Recommended layout:
 
 ```text
-r2://fundusv1/images/fundus_image_dataset_20260521.tar
-r2://fundusv1/images/fundus_image_dataset_20260521.tar.sha256
-r2://fundusv1/images/fundus_image_dataset.filelist.txt
-r2://fundusv1/images/IMAGE_PACKAGE_CONTENTS.txt
+images/FGADR/
+images/DDR-dataset/
+images/idrid/
+images/messidor-2/
+images/cropped/
+images/aptos_processed/
+labels/DR_grading.csv
+labels/messidor_data.csv
+labels/idrid_old/idrid_labels.csv
+adapters/<experiment_name>/
+predictions/<experiment_name>/
 ```
 
 ### R2 Credentials
 
-Create an R2 API token with read/write access to the bucket. Record:
-
-```text
-R2_ACCOUNT_ID=<cloudflare_account_id>
-R2_ACCESS_KEY_ID=<r2_access_key_id>
-R2_SECRET_ACCESS_KEY=<r2_secret_access_key>
-R2_BUCKET=fundusv1
-R2_ENDPOINT=https://4ff11044d39e473b1c3f56367f45fe71.r2.cloudflarestorage.com
-```
-
-Do not commit these values.
-
-### Option A: Upload With AWS CLI
+Create an R2 API token with read/write access to the bucket. Configure credentials locally or on the VM. Do not commit credentials.
 
 ```bash
-pip install -U awscli
-
-export AWS_ACCESS_KEY_ID=<r2_access_key_id>
-export AWS_SECRET_ACCESS_KEY=<r2_secret_access_key>
-export AWS_DEFAULT_REGION=auto
 export R2_ENDPOINT=https://4ff11044d39e473b1c3f56367f45fe71.r2.cloudflarestorage.com
 export R2_BUCKET=fundusv1
-
-aws --endpoint-url "$R2_ENDPOINT" s3 cp \
-  /workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset_20260521.tar \
-  s3://$R2_BUCKET/images/fundus_image_dataset_20260521.tar
-
-aws --endpoint-url "$R2_ENDPOINT" s3 cp \
-  /workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset_20260521.tar.sha256 \
-  s3://$R2_BUCKET/images/fundus_image_dataset_20260521.tar.sha256
-
-aws --endpoint-url "$R2_ENDPOINT" s3 cp \
-  /workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset.filelist.txt \
-  s3://$R2_BUCKET/images/fundus_image_dataset.filelist.txt
-
-aws --endpoint-url "$R2_ENDPOINT" s3 cp \
-  /workspace/artifacts/fundus_transfer_20260521/IMAGE_PACKAGE_CONTENTS.txt \
-  s3://$R2_BUCKET/images/IMAGE_PACKAGE_CONTENTS.txt
+export AWS_DEFAULT_REGION=auto
+export AWS_ACCESS_KEY_ID=<your_r2_access_key_id>
+export AWS_SECRET_ACCESS_KEY=<your_r2_secret_access_key>
 ```
 
-Download on a new server:
+For AWS CLI, the endpoint is the account endpoint without the bucket suffix.
+
+### Upload Images With rclone
 
 ```bash
-mkdir -p /workspace/artifacts/fundus_images
-
-aws --endpoint-url "$R2_ENDPOINT" s3 cp \
-  s3://$R2_BUCKET/images/fundus_image_dataset_20260521.tar \
-  /workspace/artifacts/fundus_images/fundus_image_dataset_20260521.tar
-
-aws --endpoint-url "$R2_ENDPOINT" s3 cp \
-  s3://$R2_BUCKET/images/fundus_image_dataset_20260521.tar.sha256 \
-  /workspace/artifacts/fundus_images/fundus_image_dataset_20260521.tar.sha256
-
-cd /workspace/artifacts/fundus_images
-sha256sum -c fundus_image_dataset_20260521.tar.sha256
-cd /workspace/LLaMA-Factory
-tar -xf /workspace/artifacts/fundus_images/fundus_image_dataset_20260521.tar
+rclone sync /workspace/LLaMA-Factory/data/FGADR/ r2:fundusv1/images/FGADR/ -P --transfers 32
+rclone sync /workspace/LLaMA-Factory/data/DDR-dataset/ r2:fundusv1/images/DDR-dataset/ -P --transfers 32
+rclone sync /workspace/LLaMA-Factory/data/idrid/ r2:fundusv1/images/idrid/ -P --transfers 32
+rclone sync /workspace/LLaMA-Factory/data/messidor-2/ r2:fundusv1/images/messidor-2/ -P --transfers 32
+rclone sync /workspace/LLaMA-Factory/data/cropped/ r2:fundusv1/images/cropped/ -P --transfers 32
+rclone sync /workspace/LLaMA-Factory/data/processed_images/ r2:fundusv1/images/aptos_processed/ -P --transfers 32
 ```
 
-### Option B: Upload With rclone
-
-Create `~/.config/rclone/rclone.conf`:
-
-```ini
-[r2]
-type = s3
-provider = Cloudflare
-access_key_id = <r2_access_key_id>
-secret_access_key = <r2_secret_access_key>
-endpoint = https://4ff11044d39e473b1c3f56367f45fe71.r2.cloudflarestorage.com
-acl = private
-```
-
-Upload:
+### Partial Restore On A VM
 
 ```bash
-rclone copy /workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset_20260521.tar r2:fundusv1/images/ --progress
-rclone copy /workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset_20260521.tar.sha256 r2:fundusv1/images/ --progress
-rclone copy /workspace/artifacts/fundus_transfer_20260521/fundus_image_dataset.filelist.txt r2:fundusv1/images/ --progress
-rclone copy /workspace/artifacts/fundus_transfer_20260521/IMAGE_PACKAGE_CONTENTS.txt r2:fundusv1/images/ --progress
+mkdir -p /workspace/LLaMA-Factory/data
+rclone copy r2:fundusv1/images/idrid/ /workspace/LLaMA-Factory/data/idrid/ -P
+rclone copy r2:fundusv1/images/FGADR/ /workspace/LLaMA-Factory/data/FGADR/ -P
 ```
 
-Download:
+Use the old tar only for full cold restore:
 
 ```bash
-rclone copy r2:fundusv1/images/fundus_image_dataset_20260521.tar /workspace/artifacts/fundus_images/ --progress
-rclone copy r2:fundusv1/images/fundus_image_dataset_20260521.tar.sha256 /workspace/artifacts/fundus_images/ --progress
+aws --endpoint-url "$R2_ENDPOINT" s3 cp   s3://$R2_BUCKET/images/fundus_image_dataset_20260521.tar   /workspace/artifacts/fundus_images/fundus_image_dataset_20260521.tar
 ```
 
-## Path Contract
+## Upload Training Results Back From A VM
 
-Extract both packages under the LLaMA-Factory root:
+Push only small reproducibility records to GitHub:
 
-```text
-/workspace/LLaMA-Factory/data/...
-/workspace/LLaMA-Factory/reports/...
+```bash
+cd /workspace/fundus-qwen3vl-project
+git pull
+git add configs manifests reports scripts
+git commit -m "Record <experiment_name> results"
+git push
 ```
 
-The JSONL files use relative image paths. Keeping this layout avoids rewriting `images` fields.
+Upload adapters to R2:
+
+```bash
+EXP=<experiment_name>
+rclone copy /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/$EXP/   r2:fundusv1/adapters/$EXP/ -P --transfers 16
+```
+
+Upload large prediction dumps to R2 or Hugging Face Dataset:
+
+```bash
+EXP=<experiment_name>
+rclone copy /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/$EXP/generated_predictions.jsonl   r2:fundusv1/predictions/$EXP/ -P
+```
+
+Then record URI, checksum, train config, eval config, and metric path in the experiment manifest.
 
 ## License Recommendation
 
@@ -228,35 +159,10 @@ license: other
 visibility: private
 ```
 
-Reason: this package contains generated annotations/CoT derived from multiple fundus datasets whose original licenses and redistribution rules may differ. Do not mark it as CC-BY, MIT, or Apache unless every upstream dataset explicitly permits that redistribution. A safe dataset-card note is:
+Reason: this package contains generated annotations/CoT derived from multiple fundus datasets whose original licenses and redistribution rules may differ. Do not mark it as CC-BY, MIT, or Apache unless every upstream dataset explicitly permits that redistribution.
+
+A safe dataset-card note is:
 
 ```markdown
 License: Other / Research-only. This repository contains derived annotation files for internal research use. It does not include raw fundus images. Users must obtain the original image datasets under their respective licenses before use.
-```
-
-If you later publish only code/configs, that GitHub repository can use Apache-2.0 or MIT. For this annotation dataset, keep `other` unless you have checked all source licenses.
-
-## Your R2 Settings
-
-Use these values for this project:
-
-```bash
-export R2_ENDPOINT=https://4ff11044d39e473b1c3f56367f45fe71.r2.cloudflarestorage.com
-export R2_BUCKET=fundusv1
-export AWS_DEFAULT_REGION=auto
-export AWS_ACCESS_KEY_ID=<your_r2_access_key_id>
-export AWS_SECRET_ACCESS_KEY=<your_r2_secret_access_key>
-```
-
-Important: the AWS CLI endpoint is the account endpoint without the bucket path. Your browser-style/API URL may appear as:
-
-```text
-https://4ff11044d39e473b1c3f56367f45fe71.r2.cloudflarestorage.com/fundusv1
-```
-
-But for AWS CLI use:
-
-```text
---endpoint-url https://4ff11044d39e473b1c3f56367f45fe71.r2.cloudflarestorage.com
-s3://fundusv1/...
 ```

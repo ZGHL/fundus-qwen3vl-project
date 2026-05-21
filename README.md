@@ -22,6 +22,15 @@ The next main experiment should rebuild the L3 path in English CoT format from s
 
 See `reports/PROJECT_MAINLINE_INVENTORY.md` for the full lineage.
 
+## Artifact Policy
+
+- Existing 2026-05-21 HF/R2 tar files are frozen restore snapshots.
+- Future annotation/CoT/SFT updates should be uploaded to Hugging Face Dataset as native JSONL/directories.
+- Future image updates should use R2 directory/object sync rather than rebuilding a monolithic image tar.
+- LLaMA-Factory is pinned to commit `f80e15dbb41cafc3a6f662aa520f40e596a41997` before project patches are applied.
+- See `docs/ENVIRONMENT.md`, `docs/data_and_artifact_transfer.md`, and `reports/REPOSITORY_AND_ARTIFACT_WORKFLOW.md`.
+
+
 ## Cloud Setup
 
 On a new GPU server:

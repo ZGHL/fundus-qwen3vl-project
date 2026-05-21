@@ -1,0 +1,34 @@
+r2_bucket: fundusv1
+
+current_snapshot:
+  role: cold restore snapshot created on 2026-05-21
+  key: images/fundus_image_dataset_20260521.tar
+  size_bytes: 67500830720
+  checksum_key: images/fundus_image_dataset_20260521.tar.sha256
+  status: keep_for_restore_only
+
+recommended_incremental_layout:
+  image_roots:
+    fgadr: images/FGADR/
+    ddr: images/DDR-dataset/
+    idrid: images/idrid/
+    messidor2: images/messidor-2/
+    cropped: images/cropped/
+    aptos_processed: images/aptos_processed/
+  labels:
+    dr_grading: labels/DR_grading.csv
+    messidor_data: labels/messidor_data.csv
+    idrid_labels: labels/idrid_old/idrid_labels.csv
+  adapters:
+    prefix: adapters/<experiment_name>/
+  predictions:
+    prefix: predictions/<experiment_name>/
+
+recommended_tools:
+  - rclone
+  - aws s3 CLI compatible with Cloudflare R2
+
+notes:
+  - Future image updates should use directory/object sync, not a new monolithic tar file.
+  - The existing tar remains useful as a frozen full restore snapshot.
+  - VM jobs should pull only the subdirectories required by the current experiment when possible.

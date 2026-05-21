@@ -1,0 +1,19 @@
+base_models:
+  qwen3_vl_8b_instruct:
+    hf_repo: Qwen/Qwen3-VL-8B-Instruct
+    revision: main
+    local_path: models/Qwen3-VL-8B-Instruct
+    role: base vision-language model for all fundus experiments
+    size_gb_approx: 17
+    reproducibility_note: Replace `main` with the exact Hugging Face commit hash after the first controlled cloud download.
+
+  qwen3_vl_8b_instruct_candidate_baseline:
+    hf_repo: Qwen/Qwen3-VL-8B-Instruct
+    revision: main
+    local_path: models/Qwen3-VL-8B-Instruct
+    role: baseline model for direct comparison against fundus fine-tuned adapters
+
+notes:
+  - Base model weights are never committed to GitHub.
+  - Record the exact Hugging Face snapshot revision in this file once a cloud VM downloads the model.
+  - If a model requires gated access, configure Hugging Face authentication on the VM rather than storing tokens in this repository.

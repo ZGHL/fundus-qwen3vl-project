@@ -263,3 +263,91 @@ The next mainline experiment should not reuse the incomplete English CoT run as 
 7. Store large generated CoT files on Hugging Face and any preserved adapters outside GitHub.
 
 This keeps the comparison fair: the only intended difference between the Chinese and English L3 baselines should be the CoT language and format, not the training path or data distribution.
+
+## 2026-05-21 Artifact Workflow Revision
+
+The initial upload used two frozen snapshot packages:
+
+```text
+HF: fundus_generated_annotations_20260521.tar.gz
+R2: images/fundus_image_dataset_20260521.tar
+```
+
+These snapshots remain valid for restoring the exact project state from 2026-05-21, but they should not be the default format for future iterative updates.
+
+Revised policy:
+
+```text
+GitHub: code, configs, patches, manifests, metric summaries, interpretation reports
+Hugging Face Dataset: native JSONL/JSONL.GZ annotation, CoT, SFT, holdout, and stats files
+R2: image directory tree, large prediction dumps, and optional adapter/checkpoint storage
+Hugging Face Model repo or R2: important LoRA adapters and merged model artifacts
+```
+
+The main reason is VM reproducibility. A rented GPU VM should be able to pull only the files needed for a given experiment and should not require downloading or rebuilding a 63 GiB tar package for every small change.
+
+### R2 Change
+
+The existing image tar is now treated as a cold restore snapshot. Future image updates should use directory/object sync:
+
+```bash
+rclone sync data/FGADR/ r2:fundusv1/images/FGADR/ -P --transfers 32
+rclone sync data/processed_images/ r2:fundusv1/images/aptos_processed/ -P --transfers 32
+```
+
+VMs can then restore only the required subset:
+
+```bash
+rclone copy r2:fundusv1/images/idrid/ /workspace/LLaMA-Factory/data/idrid/ -P
+```
+
+### Hugging Face Change
+
+The existing annotation tar.gz is now treated as a frozen generated-annotation snapshot. Future CoT/SFT files should be uploaded as native files or directories:
+
+```bash
+hf upload Guohou/fundusAnnotationsV1 data/annotation_v4/ data/annotation_v4/ --repo-type dataset --commit-message "Add English L3 CoT annotation files"
+```
+
+This preserves Hugging Face commit history and makes individual JSONL files easier to browse, diff, download, and reference.
+
+### LLaMA-Factory Reproducibility Change
+
+The setup script now pins LLaMA-Factory before applying local patches:
+
+```text
+LLAMA_FACTORY_COMMIT=f80e15dbb41cafc3a6f662aa520f40e596a41997
+```
+
+This avoids silently applying patches to a moving upstream branch. If a future experiment needs a newer LLaMA-Factory, update the commit, refresh the patches, and record the migration in this report.
+
+### Environment And Model Tracking
+
+Environment details are recorded in:
+
+```text
+docs/ENVIRONMENT.md
+requirements/base.txt
+```
+
+Base model source information is recorded in:
+
+```text
+manifests/models/base_models.yaml
+manifests/models/model_manifest.yaml
+```
+
+The exact Hugging Face model snapshot revision should be filled in after the first controlled cloud download.
+
+### VM Result Return Rule
+
+After a VM experiment finishes:
+
+```text
+small reproducibility records -> GitHub
+large adapters/checkpoints -> R2 or Hugging Face Model repo
+large prediction dumps -> R2 or Hugging Face Dataset
+```
+
+Every preserved large artifact should have its URI and checksum recorded in a manifest before the VM is released.
+
