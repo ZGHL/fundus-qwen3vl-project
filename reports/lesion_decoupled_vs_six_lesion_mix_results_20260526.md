@@ -1,128 +1,134 @@
-# Decoupled vs Six-Lesion Mix Lesion-Perception Experiment
+# Lesion-Perception A/B/C Experiment Results
 
 Date: 2026-05-26
 
-This report summarizes the current comparison between the decoupled lesion-perception SFT and the six-lesion mix lesion-perception SFT for Qwen3-VL-8B-Instruct + LLaMA-Factory LoRA training.
+This report replaces the earlier Arm A vs Arm B comparison with the completed
+three-arm lesion-perception comparison for Qwen3-VL-8B-Instruct + LLaMA-Factory
+LoRA/SFT.
+
+The experiment only evaluates lesion perception. L2 grading and L4 grading are
+not included.
 
 ## Objective
 
-The main question is whether decoupled lesion perception, where the model learns one lesion target at a time, is more stable and effective than a traditional mixed lesion-perception setup, where the model outputs all six lesion states in one response.
+The main question is whether strict lesion-decoupled SFT is better than mixed
+lesion-perception training.
 
-Only the lesion-perception task is compared here. L2 grading and L4 grading are not included.
+Three arms are compared:
 
-## Compared Methods
+- Arm A: Decoupled single-lesion SFT.
+- Arm B: Joint-audit six-lesion mix SFT.
+- Arm C: Same-sample single-row mix SFT.
 
-### Decoupled Lesion Perception
+Arm C was added to isolate whether Arm A's advantage comes only from the simple
+single-object output format and balanced sample budget, or also from the
+strictly decoupled single-lesion prompt scope.
 
-Each training example asks the model to inspect exactly one lesion type. The target lesion is explicit in the system/user prompt.
+## Arm Definitions
 
-Example prompt:
+| Factor | Arm A: Decoupled | Arm B: Joint-Audit Mix | Arm C: Same-Sample Single-Row Mix |
+|---|---|---|---|
+| Prompt scope | One specified lesion only | Audit all six lesions | Aware of all six, but report one target |
+| Output schema | Single lesion object | Nested six-lesion object | Single lesion object |
+| Train rows | 12,408 | 5,458 image rows | 12,408 |
+| Lesion decisions | 12,408 | 32,748 | 12,408 |
+| Row identity | Single target rows | Image-level grouped rows | Same rows as Arm A |
+| Per-lesion balance | Same as cleaned Arm A pool | Strong all-negative skew after six-key expansion | Same as Arm A |
+| Non-target lesion labels | None | Filled for all six lesions | None |
+
+## Prompt and Label Design
+
+### Arm A: Decoupled
+
+Arm A asks for exactly one lesion and tells the model to inspect only that
+lesion. The response contains a single JSON object:
 
 ```text
-You are a fundus image analyst. Inspect ONLY for EX (hard exudate). This is a single-lesion perception task: do NOT output a final DR grade and do NOT combine other lesions. First describe visible morphology and location, then judge whether the target lesion is present.
+You are a fundus image analyst. Inspect ONLY for EX (hard exudate). This is a
+single-lesion perception task: do NOT output a final DR grade and do NOT combine
+other lesions.
 
 <image>
-Examine this fundus image for hard exudate (EX). Output exactly four sections: [Lesion Existence and Evidence Judgment], [Basic Morphological and Location Features], [Decision Notes for This Single-Lesion Task], and [Structured Output].
+Examine this fundus image for hard exudate (EX). Output exactly four sections:
+[Lesion Existence and Evidence Judgment], [Basic Morphological and Location
+Features], [Decision Notes for This Single-Lesion Task], and [Structured Output].
 ```
 
-Example CoT/label:
+The final structured output has the schema:
 
-```text
-[Lesion Existence and Evidence Judgment]
-hard exudate is present with strong direct evidence from retsam_validated.
-
-[Basic Morphological and Location Features]
-The target finding is described as bright yellow-white deposits with relatively sharp borders. In this sample it is annotated as count=some, area=medium, located in the superior-temporal quadrant only.
-
-[Decision Notes for This Single-Lesion Task]
-This is a target-lesion positive example for learning visible morphology. Focus on sharply bordered yellow-white lipid deposits; distinguish them from fluffy cotton-wool spots. No final DR grade is assigned in this single-lesion perception task.
-
-[Structured Output]
+```json
 {"task":"lesion_perception_EX","lesion":"EX","present":true,"evidence_state":"present","strength":"strong","count":"some","area":"medium","location":"in the superior-temporal quadrant only","source":"retsam_validated"}
 ```
 
-### Six-Lesion Mix Lesion Perception
+### Arm B: Joint-Audit Mix
 
-Each training example asks the model to inspect all six lesion categories and output all six lesion keys in one structured response:
-
-- HE: retinal hemorrhage
-- EX: hard exudate
-- MA: microaneurysm
-- SE: soft exudate / cotton-wool spot
-- IRMA: intraretinal microvascular abnormality
-- NV: neovascularization
-
-Example prompt:
+Arm B asks the model to audit all six lesions in every image and emit all six
+keys in one nested JSON object:
 
 ```text
-You are a fundus image analyst. This is a lesion-perception task. Audit the six fundus lesion categories separately, compare similar lesion patterns when needed, and do not output a final DR grade.
+This is a lesion-perception task. Audit the six fundus lesion categories
+separately, compare similar lesion patterns when needed, and do not output a
+final DR grade.
 
-<image>
-Lesion reference definitions:
-- HE (retinal hemorrhage): dark red dot, blot, or flame-like hemorrhagic lesions; generally larger or more irregular than MA.
-- EX (hard exudate): bright yellow-white deposits with relatively sharp borders; distinguish from fluffy SE and imaging glare.
+For every image, audit all six lesion keys: HE, EX, MA, SE, IRMA, NV.
+```
+
+The final structured output has the schema:
+
+```json
+{"task":"joint_lesion_perception","lesions":{"HE":{...},"EX":{...},"MA":{...},"SE":{...},"IRMA":{...},"NV":{...}}}
+```
+
+Important note: Arm B groups Arm A rows by image and fills missing non-positive
+lesions as absent with `source="cleaning_rule"`. This creates the clinically
+natural "report all six lesions" format, but it also creates a strong negative
+skew and may introduce pseudo-negative noise when full image-level labels are
+not available for every lesion.
+
+### Arm C: Same-Sample Single-Row Mix
+
+Arm C keeps the same row identity, same target lesion distribution, and same
+single-object output schema as Arm A. The only major difference is the prompt:
+the model is told to be aware of all six lesion categories for differential
+diagnosis, but to report only the specified target lesion.
+
+```text
+You are a fundus image analyst. You are familiar with all six fundus lesion
+categories and their distinguishing morphology:
+- HE (retinal hemorrhage): dark red dot, blot, or flame-like hemorrhagic lesions.
+- EX (hard exudate): bright yellow-white deposits with relatively sharp borders.
 - MA (microaneurysm): tiny round red dots, usually smaller than hemorrhages.
-- SE (soft exudate / cotton-wool spot): gray-white fluffy cotton-wool patches with soft borders; distinguish from sharper hard exudates.
-- IRMA (intraretinal microvascular abnormality): irregular tortuous intraretinal vascular channels; not preretinal new vessels.
-- NV (neovascularization): abnormal fine new vessels on the disc or elsewhere; distinguish from IRMA and ordinary retinal vessels.
+- SE (soft exudate / cotton-wool spot): gray-white fluffy cotton-wool patches with soft borders.
+- IRMA (intraretinal microvascular abnormality): irregular tortuous intraretinal vascular channels.
+- NV (neovascularization): abnormal fine new vessels on the disc or elsewhere.
 
-Identify the lesion status for these six fundus lesion categories: HE (retinal hemorrhage), EX (hard exudate), MA (microaneurysm), SE (soft exudate / cotton-wool spot), IRMA (intraretinal microvascular abnormality), NV (neovascularization).
-For every image, audit all six lesion keys: HE, EX, MA, SE, IRMA, NV. Do not omit any of these six keys, do not add any other lesion key, and do not output a final DR grade.
-Output exactly four sections: [Global Image Review], [Lesion-by-Lesion Audit], [Cross-Lesion Distinction], and [Structured Output].
-In [Structured Output], return JSON with task="joint_lesion_perception" and a lesions object containing exactly these keys: "HE", "EX", "MA", "SE", "IRMA", "NV". For each key, set present to true or false and include evidence_state, strength, count, area, location, and source.
+For each query, the user will specify exactly ONE target lesion. Inspect the
+image with awareness of all six lesion categories for differential diagnosis,
+but output only the target lesion's decision.
 ```
 
-Example CoT/label:
-
-```text
-[Global Image Review]
-The image is audited for six fundus lesion categories. Positive targets: EX, MA. Absent targets: HE, SE, IRMA, NV.
-
-[Lesion-by-Lesion Audit]
-- HE (retinal hemorrhage): absent. Evidence source=cleaning_rule; no reliable dark red dot, blot, or flame-like hemorrhagic lesions pattern is retained.
-- EX (hard exudate): present. Evidence source=strong_mask; visual pattern=bright yellow-white deposits with relatively sharp borders; count=unknown; area=unknown; location=in the superior-nasal quadrant only.
-- MA (microaneurysm): present. Evidence source=strong_mask; visual pattern=tiny round red dots, usually smaller than hemorrhages; count=unknown; area=unknown; location=posterior retina.
-- SE (soft exudate / cotton-wool spot): absent. Evidence source=cleaning_rule; no reliable gray-white fluffy cotton-wool patches with soft borders pattern is retained.
-- IRMA (intraretinal microvascular abnormality): absent. Evidence source=strong_mask; no reliable irregular tortuous intraretinal vascular channels pattern is retained.
-- NV (neovascularization): absent. Evidence source=cleaning_rule; no reliable abnormal fine new vessels on the disc or elsewhere pattern is retained.
-
-[Cross-Lesion Distinction]
-Keep red lesions separated from yellow-white exudates; distinguish tiny MA from larger HE; separate fluffy SE from sharper EX; and do not confuse IRMA with NV or ordinary vessels.
-
-[Structured Output]
-{"task":"joint_lesion_perception","lesions":{"HE":{"present":false,"evidence_state":"absent","strength":"absent","count":"none","area":"none","location":null,"source":"cleaning_rule"},"EX":{"present":true,"evidence_state":"present","strength":"strong","count":null,"area":null,"location":"in the superior-nasal quadrant only","source":"strong_mask"},"MA":{"present":true,"evidence_state":"present","strength":"strong","count":null,"area":null,"location":"posterior retina","source":"strong_mask"},"SE":{"present":false,"evidence_state":"absent","strength":"absent","count":"none","area":"none","location":null,"source":"cleaning_rule"},"IRMA":{"present":false,"evidence_state":"absent","strength":"absent","count":null,"area":null,"location":null,"source":"strong_mask"},"NV":{"present":false,"evidence_state":"absent","strength":"absent","count":"none","area":"none","location":null,"source":"cleaning_rule"}}}
-```
-
-Important labeling note: the six-lesion mix dataset expands each image to six lesion decisions. Lesions not retained as positive in the cleaned pool are filled as absent with `source="cleaning_rule"`. This makes the mix task match the intuitive "identify all six lesions" format, but it may introduce pseudo-negative noise for lesions without full image-level annotation.
+Arm C was generated by `scripts/fundus_v4/build_l3_single_row_mix_full.py`.
 
 ## Data
 
-### Decoupled Train Data
+### Arm A and Arm C Train Distribution
 
-Dataset: `fundus_lesion_perception_en_cot_full_train`
+Arm C is derived directly from Arm A rows. The train distribution is identical:
 
-Rows: 12,408 single-lesion examples.
+| Lesion | Positive | Negative | Total |
+|---|---:|---:|---:|
+| HE | 1,862 | 931 | 2,793 |
+| EX | 2,652 | 1,326 | 3,978 |
+| MA | 600 | 300 | 900 |
+| SE | 1,240 | 1,240 | 2,480 |
+| IRMA | 603 | 754 | 1,357 |
+| NV | 300 | 600 | 900 |
+| **Total** | **7,257** | **5,151** | **12,408** |
 
-Approximate train distribution:
+### Arm B Train Distribution
 
-| Lesion | Positive | Negative |
-|---|---:|---:|
-| HE | 1,862 | 931 |
-| EX | 2,652 | 1,326 |
-| MA | 600 | 300 |
-| SE | 1,240 | 1,240 |
-| IRMA | 603 | 754 |
-| NV | 300 | 600 |
-
-### Six-Lesion Mix Train Data
-
-Dataset: `fundus_l3_joint_mix_full_train`
-
-Rows: 5,458 image-level examples.
-
-Each row contains six lesion decisions, for a total of 32,748 lesion decisions.
-
-Train distribution:
+Arm B has fewer rows because it groups single-lesion rows into image-level
+examples. Each row emits six lesion decisions.
 
 | Lesion | Positive | Negative |
 |---|---:|---:|
@@ -133,164 +139,221 @@ Train distribution:
 | IRMA | 603 | 4,855 |
 | NV | 100 | 5,358 |
 
-The mix distribution is much more negative-heavy because every image is forced to emit all six lesion states.
+Arm B total: 5,458 image rows and 32,748 lesion decisions.
 
 ## Training Configuration
 
-Both experiments used the same base model and LoRA/SFT setup.
+All three arms used the same base training hyperparameters.
 
-| Parameter | Decoupled | Six-Lesion Mix |
-|---|---|---|
-| Base model | `./models/Qwen3-VL-8B-Instruct` | same |
-| Framework | LLaMA-Factory | same |
-| Stage | SFT | same |
-| Finetuning | LoRA | same |
-| LoRA rank | 16 | same |
-| LoRA alpha | 32 | same |
-| LoRA dropout | 0.05 | same |
-| LoRA target | all | same |
-| Template | `qwen3_vl_nothink` | same |
-| cutoff_len | 2304 | same |
-| image_max_pixels | 262144 | same |
-| image_min_pixels | 65536 | same |
-| batch size | 1 | same |
-| grad accumulation | 16 | same |
-| learning rate | 6e-6 | same |
-| epochs | 1.0 | same |
-| scheduler | cosine | same |
-| warmup | 0.03 | same |
-| bf16 | true | same |
-| gradient checkpointing | true | same |
-| optimizer | adamw_torch | same |
+| Parameter | Value |
+|---|---|
+| Base model | `./models/Qwen3-VL-8B-Instruct` |
+| Framework | LLaMA-Factory |
+| Stage | SFT |
+| Finetuning | LoRA |
+| LoRA rank | 16 |
+| LoRA alpha | 32 |
+| LoRA dropout | 0.05 |
+| LoRA target | all |
+| Template | `qwen3_vl_nothink` |
+| cutoff_len | 2304 |
+| image_max_pixels | 262144 |
+| image_min_pixels | 65536 |
+| per-device batch size | 1 |
+| gradient accumulation | 16 |
+| learning rate | 6e-6 |
+| epochs | 1.0 |
+| scheduler | cosine |
+| warmup ratio | 0.03 |
+| precision | bf16 |
+| gradient checkpointing | true |
+| optimizer | adamw_torch |
 
 Output directories:
 
-- Decoupled: `saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_full`
-- Six-lesion mix: `saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full`
+- Arm A: `saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_full`
+- Arm B: `saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full`
+- Arm C: `saves/qwen3-vl-8b-fundus/lora/l3_single_row_mix_full`
 
 ## Training Results
 
-| Method | Train Rows / Images | Lesion Decisions | Steps | Train Loss | Runtime | Samples/s |
+| Arm | Train Rows / Images | Lesion Decisions | Steps | Train Loss | Runtime | Samples/s |
 |---|---:|---:|---:|---:|---:|---:|
-| Decoupled | 12,408 rows | 12,408 | 776 | 0.3439 | 8,141.7 s | 1.524 |
-| Six-lesion Mix | 5,458 images | 32,748 | 342 | 0.2364 | 5,876.4 s | 0.929 |
+| A Decoupled | 12,408 rows | 12,408 | 776 | 0.3439 | 8,141.7 s | 1.524 |
+| B Joint-Audit Mix | 5,458 images | 32,748 | 342 | 0.2364 | 5,876.4 s | 0.929 |
+| C Single-Row Mix | 12,408 rows | 12,408 | 776 | 0.2281 | 9,465.4 s | 1.311 |
 
-The six-lesion mix loss is lower, but this did not translate into useful positive-lesion recall. The low loss is consistent with the strong negative skew created by forcing all six keys for every image.
+Arm B and Arm C both reached lower training loss than Arm A, but neither lower
+loss corresponded to better lesion perception. In this setting, lower SFT loss
+mainly reflects easier or more conservative text-generation behavior, not better
+positive lesion detection.
 
-## Evaluation Setup
+## Evaluation Protocol
 
-The same evaluation image pools were used where applicable, but the scoring granularity differs:
-
-- Decoupled prediction rows represent one lesion decision per row.
-- Mix prediction rows represent one image-level response with six lesion decisions.
-
-Evaluation splits:
+The same evaluation pools are used where applicable:
 
 - `val_subset`
 - `balanced`
 - `irma_locked`
 - `nv_locked`
 
-Scoring focuses on:
+Arm A and Arm C use the same single-lesion scorer because they share the same
+single-object JSON schema. Arm B uses the joint-mix scorer because each response
+contains six lesion decisions.
+
+Primary metrics:
 
 - JSON parse success.
-- Target lesion consistency.
-- Macro recall.
-- Macro F1.
-- Balanced accuracy.
-- Rare-lesion recall/F1 for IRMA/NV.
-
-`no_grade_output_rate` means the response did not output a DR grade, so higher is better for this lesion-perception task.
+- Target consistency.
+- Macro precision, recall, and F1 for lesion presence.
+- Per-lesion precision, recall, F1, and specificity.
+- IRMA/NV locked-set recall.
+- No-grade-output rate. Higher is better because the task should not output a
+  final DR grade.
 
 ## Main Evaluation Results
 
-| Eval Set | Method | Rows | Decisions | JSON Parse | Target Consistency | Macro Recall | Macro F1 | Balanced Acc |
+| Eval Set | Arm | Rows | Decisions | JSON Parse | Target Consistency | Macro Precision | Macro Recall | Macro F1 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| val_subset | Decoupled | 1,230 | 1,230 | 98.9% | 98.5% | 58.4% | 0.5699 | 0.5646 |
-| val_subset | Six-lesion Mix | 748 | 4,488 | 14.4% | 14.4% | 0.0% | N/A | 0.4998 |
-| balanced | Decoupled | 200 | 200 | 99.5% | 99.0% | 57.4% | 0.6243 | 0.5718 |
-| balanced | Six-lesion Mix | 177 | 1,062 | 13.6% | 13.6% | 0.0% | N/A | 0.5000 |
-| IRMA locked | Decoupled | 100 | 100 | 99.0% | 96.0% | 0.0% | N/A | 0.5000 |
-| IRMA locked | Six-lesion Mix | 100 | 600 | 19.0% | 19.0% | 0.0% | N/A | 0.5000 |
-| NV locked | Decoupled | 105 | 105 | 100.0% | 100.0% | 0.0% | N/A | 0.4950 |
-| NV locked | Six-lesion Mix | 105 | 630 | 20.0% | 20.0% | 0.0% | N/A | 0.5000 |
+| val_subset | A Decoupled | 1,230 | 1,230 | 98.9% | 98.5% | 59.1% | 58.4% | **56.99%** |
+| val_subset | B Joint-Audit Mix | 748 | 4,488 | 14.4% | 14.4% | 0.0% | 0.0% | N/A |
+| val_subset | C Single-Row Mix | 1,230 | 1,230 | **100.0%** | **100.0%** | 73.9% | 16.2% | 36.23% |
+| balanced | A Decoupled | 200 | 200 | 99.5% | 99.0% | 45.4% | 57.4% | **62.43%** |
+| balanced | B Joint-Audit Mix | 177 | 1,062 | 13.6% | 13.6% | N/A | 0.0% | N/A |
+| balanced | C Single-Row Mix | 200 | 200 | **100.0%** | **100.0%** | 91.7% | 18.0% | 40.66% |
+| IRMA locked | A Decoupled | 100 | 100 | 99.0% | 96.0% | N/A | 0.0% | N/A |
+| IRMA locked | B Joint-Audit Mix | 100 | 600 | 19.0% | 19.0% | N/A | 0.0% | N/A |
+| IRMA locked | C Single-Row Mix | 100 | 100 | **100.0%** | **100.0%** | N/A | 0.0% | N/A |
+| NV locked | A Decoupled | 105 | 105 | 100.0% | 100.0% | 0.0% | 0.0% | N/A |
+| NV locked | B Joint-Audit Mix | 105 | 630 | 20.0% | 20.0% | N/A | 0.0% | N/A |
+| NV locked | C Single-Row Mix | 105 | 105 | **100.0%** | **100.0%** | N/A | 0.0% | N/A |
 
-## Mix Per-Lesion Behavior
+## Arm C Per-Lesion Behavior
 
-The six-lesion mix model collapsed to nearly all-negative outputs.
+Arm C fixes Arm B's structural problem: JSON parse success and target
+consistency are both 100%. However, it becomes too conservative. Specificity is
+very high, but recall collapses on several lesions.
 
-On `val_subset`:
+### val_subset
 
-| Lesion | Positive Labels | Negative Labels | TP | FP | FN | TN | Recall | Specificity |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| HE | 199 | 549 | 0 | 1 | 199 | 548 | 0.0% | 99.8% |
-| EX | 195 | 553 | 0 | 0 | 195 | 553 | 0.0% | 100.0% |
-| MA | 186 | 562 | 0 | 0 | 186 | 562 | 0.0% | 100.0% |
-| SE | 61 | 687 | 0 | 0 | 61 | 687 | 0.0% | 100.0% |
-| IRMA | 20 | 728 | 0 | 0 | 20 | 728 | 0.0% | 100.0% |
-| NV | 0 | 748 | 0 | 0 | 0 | 748 | N/A | 100.0% |
+| Lesion | A F1 | C F1 | A Recall | C Recall | C Specificity |
+|---|---:|---:|---:|---:|---:|
+| HE | 83.08% | 26.20% | 83.92% | 15.08% | 100.00% |
+| EX | 84.83% | 74.14% | 85.05% | 61.03% | 87.27% |
+| MA | 68.55% | N/A | 61.58% | 0.00% | 100.00% |
+| SE | 40.48% | 8.33% | 56.67% | 4.92% | 95.77% |
+| IRMA | 8.00% | N/A | 5.00% | 0.00% | 100.00% |
 
-On `balanced`, HE/EX/MA/SE/IRMA all had recall 0.0%, while NV had no positive labels in that split after six-key expansion.
+### balanced
+
+| Lesion | A F1 | C F1 | A Recall | C Recall | C Specificity |
+|---|---:|---:|---:|---:|---:|
+| HE | 67.86% | 18.18% | 95.00% | 10.00% | 100.00% |
+| EX | 84.44% | 78.79% | 95.00% | 65.00% | 100.00% |
+| MA | 58.54% | N/A | 60.00% | 0.00% | 100.00% |
+| SE | 38.89% | 25.00% | 36.84% | 15.00% | 95.00% |
+| IRMA | N/A | N/A | 0.00% | 0.00% | 100.00% |
+
+This pattern indicates that Arm C learned a high-precision, low-recall policy:
+it only predicts positive when very certain. EX remains usable, but HE, MA, SE,
+and IRMA lose substantial sensitivity.
+
+## Arm B Failure Mode
+
+Arm B failed in two ways:
+
+1. Structural failure: JSON parse success stayed around 13-20%.
+2. Detection failure: positive recall collapsed to 0% across evaluated positive
+   lesions.
+
+The low Arm B train loss is therefore misleading. The six-key output format and
+negative-heavy label distribution make it easy to learn mostly absent outputs
+without producing a usable structured six-lesion audit.
 
 ## Interpretation
 
-The decoupled model is clearly more stable in the current setup:
+The three-arm comparison supports the decoupled design.
 
-1. It follows the requested output format reliably.
-2. It preserves target-lesion consistency.
-3. It maintains non-zero positive recall on common lesions.
-4. It achieves meaningful macro F1 on `val_subset` and `balanced`.
+Arm A vs Arm B:
 
-The six-lesion mix model failed in two ways:
+- Arm A is much more stable structurally.
+- Arm A has meaningful common-lesion recall and Macro F1.
+- Arm B's joint output is not usable under the current LoRA/SFT setup.
 
-1. Structural failure: JSON parse success stayed around 13-20%.
-2. Detection failure: positive recall collapsed to 0.0% across evaluated positive lesions.
+Arm C vs Arm B:
 
-The low mix training loss is not evidence of better learning. It is likely driven by the many negative labels introduced by the six-key output format. Because each image emits all six lesion states, the label distribution becomes strongly negative-heavy, especially for MA, IRMA, and NV.
+- Arm C proves that keeping a single-object output schema prevents the JSON
+  collapse seen in Arm B.
+- Therefore, part of Arm B's failure is clearly caused by joint-output
+  complexity.
 
-## Fairness Notes and Limitations
+Arm A vs Arm C:
 
-This is a stricter and more natural mix baseline than the earlier controlled mix draft because every image asks for all six lesions. However, the current cleaned pool does not provide complete gold-standard image-level labels for every lesion on every image. Therefore, missing non-positive lesions were filled as absent via `cleaning_rule`.
+- Arm C uses the same rows and the same single-output schema as Arm A.
+- Arm C still loses 20.76 Macro-F1 points on `val_subset`.
+- Arm C loses 21.77 Macro-F1 points on `balanced`.
+- The main degradation is recall, not formatting.
 
-This design matches the intuitive clinical task:
+Therefore, Arm A's advantage is not only output-format simplification or sample
+budget control. The stricter single-lesion prompt scope itself appears to be
+important: focusing the model on one lesion at a time improves sensitivity.
 
-> identify which of the six lesion categories are present in the image.
+## Paper-Ready Claim
 
-But it may also penalize the mix approach through pseudo-negative noise. Even with that caveat, the practical result is useful: under the available cleaned data and current Qwen3-VL LoRA setup, the direct six-lesion mix formulation is much less stable than decoupled lesion perception.
+The results support the following claim:
 
-## Current Conclusion
+> Strict lesion-decoupled SFT improves lesion perception beyond output-format
+> simplification. Compared with a same-sample single-row mix control, decoupled
+> SFT improves Macro F1 by 20.8-21.8 points while preserving high structured
+> output reliability.
 
-For the current RetSAM-cleaned fundus dataset and Qwen3-VL-8B LoRA/SFT setup, decoupled lesion-perception training is substantially stronger than six-lesion mix training.
+The final recommended interpretation:
 
-The strongest evidence is not only the metric gap, but the failure mode:
+- Arm A is the main method.
+- Arm B is the traditional joint lesion-perception baseline and demonstrates
+  that direct six-lesion joint output is unstable.
+- Arm C is the key ablation. It shows that broad six-lesion prompt awareness
+  with single-target output is structurally stable but substantially less
+  sensitive than strict lesion decoupling.
 
-- Decoupled: high format compliance and meaningful common-lesion recall.
-- Mix: low JSON compliance and all-negative collapse despite low training loss.
+## Limitations
 
-This supports using decoupled lesion perception as the main lesion-learning strategy before integrating lesion evidence into downstream grading stages.
+Rare lesions remain weak across all arms:
 
-## Artifact Paths
+- IRMA recall is 0% or near 0%.
+- NV locked recall is 0%.
 
-Data/config/code:
+This suggests that the current cleaned pool and one-epoch LoRA setup are still
+insufficient for rare vascular lesions. Future improvements should focus on
+better rare-lesion supervision, harder positive mining, and possibly dedicated
+IRMA/NV adapters or curriculum stages.
 
-- Decoupled train config: `/workspace/LLaMA-Factory/examples/train_lora/lesion_perception_en_cot_full.yaml`
-- Mix train config: `/workspace/LLaMA-Factory/examples/train_lora/l3_joint_mix_full.yaml`
-- Mix data builder: `/workspace/fundus-qwen3vl-project/scripts/fundus_v4/build_l3_joint_mix_full.py`
-- Mix pipeline: `/workspace/fundus-qwen3vl-project/scripts/run_l3_joint_mix_pipeline.sh`
-- Mix scorer: `/workspace/fundus-qwen3vl-project/scripts/fundus/score_l3_joint_mix_predictions.py`
+## Artifact References
 
-Model outputs:
+Project-side files:
 
-- Decoupled adapter: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_full`
-- Mix adapter: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full`
+- `scripts/fundus_v4/build_l3_single_row_mix_full.py`
+- `scripts/run_l3_single_row_mix_pipeline.sh`
+- `configs/train/l3_single_row_mix_full.yaml`
+- `configs/eval/l3_single_row_mix_val_subset.yaml`
+- `configs/eval/l3_single_row_mix_balanced.yaml`
+- `configs/eval/l3_single_row_mix_irma_locked.yaml`
+- `configs/eval/l3_single_row_mix_nv_locked.yaml`
 
-Score files:
+LLaMA-Factory generated files:
 
-- Decoupled balanced: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_predict_balanced/lesion_perception_score.json`
-- Decoupled val subset: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_predict_val_subset/lesion_perception_score.json`
-- Decoupled IRMA locked: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_predict_irma_locked/lesion_perception_score.json`
-- Decoupled NV locked: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/lesion_perception_en_cot_predict_nv_locked/lesion_perception_score.json`
-- Mix balanced: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full_predict_balanced/l3_joint_mix_score.json`
-- Mix val subset: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full_predict_val_subset/l3_joint_mix_score.json`
-- Mix IRMA locked: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full_predict_irma_locked/l3_joint_mix_score.json`
-- Mix NV locked: `/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/l3_joint_mix_full_predict_nv_locked/l3_joint_mix_score.json`
+- `data/annotation_v4/fundus_l3_single_row_mix_full_train_sft.jsonl`
+- `data/annotation_v4/fundus_l3_single_row_mix_full_val_sft.jsonl`
+- `data/annotation_v4/fundus_l3_single_row_mix_val_subset_eval_sft.jsonl`
+- `data/annotation_v4/fundus_l3_single_row_mix_balanced_eval_sft.jsonl`
+- `data/annotation_v4/fundus_l3_single_row_mix_irma_locked_eval_sft.jsonl`
+- `data/annotation_v4/fundus_l3_single_row_mix_nv_locked_eval_sft.jsonl`
+- `data/annotation_v4/fundus_l3_single_row_mix_full_stats.json`
+
+Model and score outputs:
+
+- `saves/qwen3-vl-8b-fundus/lora/l3_single_row_mix_full`
+- `saves/qwen3-vl-8b-fundus/lora/l3_single_row_mix_full_predict_val_subset/lesion_perception_score.json`
+- `saves/qwen3-vl-8b-fundus/lora/l3_single_row_mix_full_predict_balanced/lesion_perception_score.json`
+- `saves/qwen3-vl-8b-fundus/lora/l3_single_row_mix_full_predict_irma_locked/lesion_perception_score.json`
+- `saves/qwen3-vl-8b-fundus/lora/l3_single_row_mix_full_predict_nv_locked/lesion_perception_score.json`

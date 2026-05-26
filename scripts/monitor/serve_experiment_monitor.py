@@ -22,6 +22,7 @@ LLAMA_ROOT = Path("/workspace/LLaMA-Factory")
 SAVES_ROOT = LLAMA_ROOT / "saves/qwen3-vl-8b-fundus/lora"
 DECOUPLED_DATASET_STATS = LLAMA_ROOT / "data/annotation_v4/fundus_lesion_perception_en_cot_full_stats.json"
 JOINT_MIX_DATASET_STATS = LLAMA_ROOT / "data/annotation_v4/fundus_l3_joint_mix_full_stats.json"
+SINGLE_ROW_MIX_DATASET_STATS = LLAMA_ROOT / "data/annotation_v4/fundus_l3_single_row_mix_full_stats.json"
 
 HTML = r"""<!doctype html>
 <html lang="zh-CN">
@@ -193,13 +194,15 @@ def parse_run(config_path: Path, kind: str) -> dict[str, Any]:
     latest = logs[-1] if logs else {}
     pred = out_dir / "generated_predictions.jsonl"
     log_files = sorted(log_dir.glob("*.log")) if log_dir.exists() else []
-    process_running = _process_running(f"llamafactory-cli train {config_path}")
+    out_mtime = out_dir.stat().st_mtime if out_dir.exists() else 0
+    run_mtime = max(out_mtime, newest_log_mtime, result_mtime)
+    process_running = _process_running(rf"llamafactory-cli train .*{re.escape(config_path.name)}")
     status = "not_started"
-    if process_running or (log_files and newest_log_mtime > result_mtime):
+    if process_running:
         status = "running"
     elif pred.exists() or all_results:
         status = "completed"
-    elif logs:
+    elif logs and not all_results:
         status = "running"
     elif out_dir.exists():
         status = "created"
@@ -221,7 +224,7 @@ def parse_run(config_path: Path, kind: str) -> dict[str, Any]:
         "latest_lr": latest.get("learning_rate"),
         "logs": logs[-200:],
         "pred_rows": sum(1 for _ in pred.open(encoding="utf-8")) if pred.exists() else 0,
-        "mtime": out_dir.stat().st_mtime if out_dir.exists() else 0,
+        "mtime": run_mtime,
     }
 
 
@@ -287,7 +290,40 @@ def _decoupled_dataset_state(stats: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _single_row_mix_dataset_state(stats: dict[str, Any]) -> dict[str, Any]:
+    train_counts = stats.get("outputs", {}).get("train", {}).get("counts", {})
+    val_counts = stats.get("outputs", {}).get("val_subset", {}).get("counts", {})
+    locked_counts = stats.get("outputs", {}).get("nv_locked", {}).get("counts", {})
+    rows = []
+    for lesion in ("HE", "EX", "MA", "SE", "IRMA", "NV"):
+        rows.append(
+            {
+                "lesion": lesion,
+                "train_pos": _pair_count(train_counts, lesion, "present"),
+                "train_neg": _pair_count(train_counts, lesion, "absent"),
+                "val_pos": _pair_count(val_counts, lesion, "present"),
+                "val_neg": _pair_count(val_counts, lesion, "absent"),
+                "locked_pos": _pair_count(locked_counts, lesion, "present"),
+                "locked_neg": _pair_count(locked_counts, lesion, "absent"),
+            }
+        )
+    outputs = stats.get("outputs", {})
+    return {
+        "name": "arm_c_single_row_mix",
+        "train_total": outputs.get("train", {}).get("rows", 0),
+        "val_total": outputs.get("val_subset", {}).get("rows", 0),
+        "nv_locked_total": outputs.get("nv_locked", {}).get("rows", 0),
+        "train_decisions": outputs.get("train", {}).get("rows", 0),
+        "val_decisions": outputs.get("val_subset", {}).get("rows", 0),
+        "nv_locked_decisions": outputs.get("nv_locked", {}).get("rows", 0),
+        "distribution": rows,
+    }
+
+
 def dataset_state() -> dict[str, Any]:
+    single = read_json(SINGLE_ROW_MIX_DATASET_STATS)
+    if single:
+        return _single_row_mix_dataset_state(single)
     joint = read_json(JOINT_MIX_DATASET_STATS)
     if joint:
         return _joint_dataset_state(joint)
@@ -297,34 +333,42 @@ def dataset_state() -> dict[str, Any]:
 def latest_score() -> dict[str, Any] | None:
     if not SAVES_ROOT.exists():
         return None
-    if _process_running("run_l3_joint_mix_pipeline.sh") or _process_running("llamafactory-cli train examples/train_lora/l3_joint_mix"):
+    if (
+        _process_running("run_l3_joint_mix_pipeline.sh")
+        or _process_running("run_l3_single_row_mix_pipeline.sh")
+        or _process_running("llamafactory-cli train examples/train_lora/l3_joint_mix")
+        or _process_running("llamafactory-cli train examples/train_lora/l3_single_row_mix")
+    ):
         return None
     score_files = list(SAVES_ROOT.glob("**/*score*.json"))
+    single = sorted([p for p in score_files if "l3_single_row_mix" in str(p)], key=lambda p: p.stat().st_mtime, reverse=True)
     joint = sorted([p for p in score_files if "l3_joint_mix" in str(p)], key=lambda p: p.stat().st_mtime, reverse=True)
-    if not joint and JOINT_MIX_DATASET_STATS.exists():
+    if not single and SINGLE_ROW_MIX_DATASET_STATS.exists():
+        return None
+    if not single and not joint and JOINT_MIX_DATASET_STATS.exists():
         return None
     legacy = sorted([p for p in score_files if "lesion_perception" in str(p)], key=lambda p: p.stat().st_mtime, reverse=True)
-    candidates = joint or legacy
+    candidates = single or joint or legacy
     if not candidates:
         return None
     obj = read_json(candidates[0])
     obj["_path"] = str(candidates[0])
-    obj["_experiment"] = "l3_joint_mix" if joint else "lesion_perception_en_cot_full"
+    obj["_experiment"] = "l3_single_row_mix" if single else ("l3_joint_mix" if joint else "lesion_perception_en_cot_full")
     return obj
 
 
 def collect_state(host: str, port: int) -> dict[str, Any]:
     all_cfgs = sorted((LLAMA_ROOT / "examples/train_lora").glob("*.yaml")) + sorted((LLAMA_ROOT / "examples/eval").glob("*.yaml"))
-    relevant_cfgs = [p for p in all_cfgs if "lesion_perception" in p.name or "l3_joint_mix" in p.name]
+    relevant_cfgs = [p for p in all_cfgs if "lesion_perception" in p.name or "l3_joint_mix" in p.name or "l3_single_row_mix" in p.name]
     train_cfgs = [p for p in relevant_cfgs if read_yaml(p).get("do_train") is True]
     eval_cfgs = [p for p in relevant_cfgs if read_yaml(p).get("do_predict") is True]
     train_runs = [parse_run(p, "train") for p in train_cfgs]
     eval_runs = [parse_run(p, "eval") for p in eval_cfgs]
-    active_train = max(train_runs, key=lambda r: r.get("mtime", 0), default={})
+    active_train = max(train_runs, key=lambda r: (r.get("status") == "running", r.get("mtime", 0)), default={})
     pred_files = list(SAVES_ROOT.glob("**/generated_predictions.jsonl")) if SAVES_ROOT.exists() else []
     save_logs = list(SAVES_ROOT.glob("**/trainer_state.json")) + pred_files if SAVES_ROOT.exists() else []
     pipeline_logs = list((LLAMA_ROOT / "logs").glob("**/*.log")) if (LLAMA_ROOT / "logs").exists() else []
-    relevant_logs = [p for p in pipeline_logs if "lesion_perception" in str(p) or "l3_joint_mix" in str(p)]
+    relevant_logs = [p for p in pipeline_logs if "lesion_perception" in str(p) or "l3_joint_mix" in str(p) or "l3_single_row_mix" in str(p)]
     log_candidates = sorted(save_logs + relevant_logs, key=lambda p: p.stat().st_mtime, reverse=True)
     tail_path = log_candidates[0] if log_candidates else Path()
     return {
@@ -343,6 +387,8 @@ def collect_state(host: str, port: int) -> dict[str, Any]:
             {"stage": "Joint mix SFT", "command": "llamafactory-cli train examples/train_lora/l3_joint_mix_full.yaml"},
             {"stage": "Joint mix eval", "command": "bash /workspace/fundus-qwen3vl-project/scripts/run_l3_joint_mix_pipeline.sh"},
             {"stage": "Joint mix score", "command": "python /workspace/fundus-qwen3vl-project/scripts/fundus/score_l3_joint_mix_predictions.py <generated_predictions.jsonl> --json-out <score.json>"},
+            {"stage": "Arm C SFT", "command": "llamafactory-cli train examples/train_lora/l3_single_row_mix_full.yaml"},
+            {"stage": "Arm C eval", "command": "bash /workspace/fundus-qwen3vl-project/scripts/run_l3_single_row_mix_pipeline.sh"},
             {"stage": "Decoupled SFT", "command": "llamafactory-cli train examples/train_lora/lesion_perception_en_cot_full.yaml"},
         ],
         "artifacts": [
@@ -350,6 +396,8 @@ def collect_state(host: str, port: int) -> dict[str, Any]:
             {"name": "Joint val subset config", "path": "examples/train_lora/l3_joint_mix_predict_val_subset.yaml"},
             {"name": "Joint dataset stats", "path": str(JOINT_MIX_DATASET_STATS)},
             {"name": "Joint scorer", "path": "scripts/fundus/score_l3_joint_mix_predictions.py"},
+            {"name": "Arm C train config", "path": "examples/train_lora/l3_single_row_mix_full.yaml"},
+            {"name": "Arm C dataset stats", "path": str(SINGLE_ROW_MIX_DATASET_STATS)},
             {"name": "Decoupled train config", "path": "examples/train_lora/lesion_perception_en_cot_full.yaml"},
         ],
         "tail_path": str(tail_path),
