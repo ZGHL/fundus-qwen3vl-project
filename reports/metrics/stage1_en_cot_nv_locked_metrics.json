@@ -1,0 +1,28 @@
+{
+  "n": 88,
+  "json_parse_success": 1.0,
+  "target_consistency": 1.0,
+  "no_grade_output_rate": 1.0,
+  "main4_macro": {
+    "f1": null,
+    "recall": null,
+    "specificity": null,
+    "balanced_accuracy": null
+  },
+  "by_lesion": {
+    "NV": {
+      "n": 88,
+      "positive": 8,
+      "negative": 80,
+      "tp": 8,
+      "fp": 61,
+      "fn": 0,
+      "tn": 19,
+      "precision": 0.11594202898550725,
+      "recall": 1.0,
+      "specificity": 0.2375,
+      "f1": 0.2077922077922078,
+      "balanced_accuracy": 0.61875
+    }
+  }
+}
