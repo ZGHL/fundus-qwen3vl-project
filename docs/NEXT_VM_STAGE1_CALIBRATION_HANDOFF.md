@@ -288,3 +288,47 @@ After training, compare against the baseline above. Primary acceptance criteria:
 - HE F1 does not regress severely.
 
 If calibration improves specificity enough, continue from calibrated adapter. If it fails, the next step is a full English two-stage rebuild: English main-4 full checkpoint followed by six-lesion balanced calibration.
+
+## Restoring Stage1 Baseline Adapter From R2
+
+The completed Stage1 English CoT adapter/checkpoints were archived to R2 after the baseline evaluation.
+
+R2 objects:
+
+```text
+s3://fundusv1/models/stage1/stage1_en_cot_20260608_full.tar.gz
+s3://fundusv1/models/stage1/stage1_en_cot_20260608_full.tar.gz.sha256
+s3://fundusv1/models/stage1/stage1_en_cot_20260608_run_artifacts.tar.gz
+s3://fundusv1/models/stage1/stage1_en_cot_20260608_run_artifacts.tar.gz.sha256
+```
+
+Restore the full adapter/checkpoints:
+
+```bash
+source /workspace/qwen3vl-env/bin/activate
+mkdir -p /workspace/artifacts/model_checkpoints
+cd /workspace/artifacts/model_checkpoints
+aws s3 cp s3://fundusv1/models/stage1/stage1_en_cot_20260608_full.tar.gz . --endpoint-url "$R2_ENDPOINT"
+aws s3 cp s3://fundusv1/models/stage1/stage1_en_cot_20260608_full.tar.gz.sha256 . --endpoint-url "$R2_ENDPOINT"
+sha256sum -c stage1_en_cot_20260608_full.tar.gz.sha256
+mkdir -p /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora
+cd /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora
+tar -xzf /workspace/artifacts/model_checkpoints/stage1_en_cot_20260608_full.tar.gz
+```
+
+Restore the small run-artifacts bundle if you want the exact generated calibration set and metrics without regenerating them:
+
+```bash
+source /workspace/qwen3vl-env/bin/activate
+cd /workspace/artifacts
+aws s3 cp s3://fundusv1/models/stage1/stage1_en_cot_20260608_run_artifacts.tar.gz . --endpoint-url "$R2_ENDPOINT"
+aws s3 cp s3://fundusv1/models/stage1/stage1_en_cot_20260608_run_artifacts.tar.gz.sha256 . --endpoint-url "$R2_ENDPOINT"
+sha256sum -c stage1_en_cot_20260608_run_artifacts.tar.gz.sha256
+tar -xzf stage1_en_cot_20260608_run_artifacts.tar.gz
+```
+
+The full checkpoint archive SHA256 is:
+
+```text
+6bd9be5084ca967d4bff6f19c03184c66812a96d0c7c9906cb312fcc537f39cf  stage1_en_cot_20260608_full.tar.gz
+```
