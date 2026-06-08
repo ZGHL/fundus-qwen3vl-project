@@ -332,3 +332,26 @@ The full checkpoint archive SHA256 is:
 ```text
 6bd9be5084ca967d4bff6f19c03184c66812a96d0c7c9906cb312fcc537f39cf  stage1_en_cot_20260608_full.tar.gz
 ```
+
+If you want to reuse the exact calibration set from the previous VM instead of regenerating it, copy it back after extracting the run-artifacts bundle:
+
+```bash
+mkdir -p /workspace/LLaMA-Factory/data/annotation_v4
+cp /workspace/artifacts/stage1_handoff_bundle/fundus_stage1_en_cot_calibration_train_sft.jsonl \
+  /workspace/LLaMA-Factory/data/annotation_v4/
+cp /workspace/artifacts/stage1_handoff_bundle/fundus_stage1_en_cot_calibration_stats.json \
+  /workspace/LLaMA-Factory/data/annotation_v4/
+cp /workspace/artifacts/stage1_handoff_bundle/fundus_stage1_en_cot_stats.json \
+  /workspace/LLaMA-Factory/data/annotation_v4/
+```
+
+The committed `scripts/run_stage1_en_cot_calibration.sh` also registers the calibration dataset in `data/annotation_v4/dataset_info.json` before training, so no manual dataset-info edit is required.
+
+Quick restore checks before training:
+
+```bash
+test -f /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot/adapter_model.safetensors && echo 'stage1_en_cot adapter OK'
+test -f /workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot/checkpoint-791/optimizer.pt && echo 'checkpoint-791 optimizer OK'
+test -f /workspace/LLaMA-Factory/data/annotation_v4/fundus_stage1_en_cot_train_sft.jsonl && echo 'stage1 train data OK'
+test -f /workspace/LLaMA-Factory/data/annotation_v4/fundus_stage1_en_cot_gold_test_sft.jsonl && echo 'gold_test data OK'
+```
