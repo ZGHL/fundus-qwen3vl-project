@@ -1,0 +1,67 @@
+### Stage1 English evidence-tiered single-lesion CoT
+### Ablation: language-model LoRA only; vision tower and projector frozen.
+
+### model
+model_name_or_path: ./models/Qwen3-VL-8B-Instruct
+trust_remote_code: true
+flash_attn: sdpa
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+create_new_adapter: true
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+# Apply LoRA only to language-model linear layers.
+freeze_vision_tower: true
+# Qwen3-VL visual.merger is excluded from lora_target=all. Keep the pretrained
+# visual-language alignment frozen in the main run.
+freeze_multi_modal_projector: true
+freeze_language_model: false
+
+### dataset
+dataset_dir: data/annotation_v4
+media_dir: data
+dataset: fundus_stage1_en_cot_train
+eval_dataset: fundus_stage1_en_cot_gold_dev
+template: qwen3_vl_nothink
+cutoff_len: 2304
+overwrite_cache: true
+preprocessing_num_workers: 4
+dataloader_num_workers: 2
+
+### qwen3-vl image tokens
+# 768x768 upper bound preserves more small-lesion detail than the old 512x512 cap.
+image_max_pixels: 589824
+image_min_pixels: 65536
+
+### output
+output_dir: saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_language_only_ablation
+logging_steps: 10
+save_steps: 200
+plot_loss: true
+overwrite_output_dir: true
+save_only_model: false
+report_to: tensorboard
+
+### train
+per_device_train_batch_size: 1
+per_device_eval_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 6.0e-6
+num_train_epochs: 1.0
+lr_scheduler_type: cosine
+warmup_steps: 24
+bf16: true
+fp16: false
+gradient_checkpointing: true
+eval_strategy: steps
+eval_steps: 200
+save_strategy: steps
+load_best_model_at_end: false
+max_grad_norm: 1.0
+optim: adamw_torch
+ddp_timeout: 180000000

@@ -49,5 +49,6 @@ apply_patch_once() {
 
 apply_patch_once "$PROJECT_DIR/patches/llama_factory/0001-local-llamafactory-tracked-changes.patch"
 apply_patch_once "$PROJECT_DIR/patches/llama_factory/0002-add-qwen3-vl-blackwell-patch.patch"
+apply_patch_once "$PROJECT_DIR/patches/llama_factory/0003-tolerate-truncated-pillow-images.patch"
 
 echo "LLaMA-Factory patches are ready in $LLAMA_FACTORY_DIR"

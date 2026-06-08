@@ -1,0 +1,17 @@
+{
+  "fundus_stage1_en_cot_train": "fundus_stage1_en_cot_train_sft.jsonl",
+  "fundus_stage1_en_cot_internal_val": "fundus_stage1_en_cot_internal_val_sft.jsonl",
+  "fundus_stage1_en_cot_gold_dev": "fundus_stage1_en_cot_gold_dev_sft.jsonl",
+  "fundus_stage1_en_cot_gold_test": "fundus_stage1_en_cot_gold_test_sft.jsonl",
+  "fundus_stage1_en_cot_gold_dev_ma": "fundus_stage1_en_cot_gold_dev_ma_sft.jsonl",
+  "fundus_stage1_en_cot_gold_dev_he": "fundus_stage1_en_cot_gold_dev_he_sft.jsonl",
+  "fundus_stage1_en_cot_gold_dev_ex": "fundus_stage1_en_cot_gold_dev_ex_sft.jsonl",
+  "fundus_stage1_en_cot_gold_dev_se": "fundus_stage1_en_cot_gold_dev_se_sft.jsonl",
+  "fundus_stage1_en_cot_gold_test_ma": "fundus_stage1_en_cot_gold_test_ma_sft.jsonl",
+  "fundus_stage1_en_cot_gold_test_he": "fundus_stage1_en_cot_gold_test_he_sft.jsonl",
+  "fundus_stage1_en_cot_gold_test_ex": "fundus_stage1_en_cot_gold_test_ex_sft.jsonl",
+  "fundus_stage1_en_cot_gold_test_se": "fundus_stage1_en_cot_gold_test_se_sft.jsonl",
+  "fundus_stage1_en_cot_weak_negative_challenge": "fundus_stage1_en_cot_weak_negative_challenge_sft.jsonl",
+  "fundus_stage1_en_cot_irma_locked": "fundus_stage1_en_cot_irma_locked_sft.jsonl",
+  "fundus_stage1_en_cot_nv_locked": "fundus_stage1_en_cot_nv_locked_sft.jsonl"
+}

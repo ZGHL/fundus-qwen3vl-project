@@ -15,6 +15,7 @@ Current patches:
 |---|---|
 | `0001-local-llamafactory-tracked-changes.patch` | Existing tracked local changes in LLaMA-Factory, including vLLM inference, custom metrics/trainer behavior, dependency range, and multimodal handling changes. Review before publication. |
 | `0002-add-qwen3-vl-blackwell-patch.patch` | Adds `qwen3_vl_blackwell.py`, used to avoid a Qwen3-VL CUDA/NVRTC issue on GB10/Blackwell. |
+| `0003-tolerate-truncated-pillow-images.patch` | Sets Pillow `LOAD_TRUNCATED_IMAGES` in LLaMA-Factory multimodal image preprocessing so a partially truncated image stream does not abort Stage1 training. |
 
 Apply them on a clean LLaMA-Factory checkout:
 
