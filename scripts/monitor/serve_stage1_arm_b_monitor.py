@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only public dashboard for the Stage1 English Arm B training run."""
+"""Read-only dashboard for the Stage1 English calibration pipeline."""
 from __future__ import annotations
 
 import argparse
@@ -21,7 +21,7 @@ import yaml
 
 HTML = r"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fundus Stage1 · Arm B Monitor</title>
+<title>Fundus Stage1 · V2 Monitor</title>
 <style>
 :root{--bg:#07111f;--panel:#0d1b2d;--panel2:#11243a;--line:#203a55;--text:#eaf2fb;--muted:#91a8c0;--cyan:#37d5d8;--blue:#5596ff;--green:#4dd8a5;--amber:#ffbd66;--red:#ff6b7a}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% -10%,#173c62 0,transparent 35%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
@@ -33,15 +33,15 @@ main{max-width:1540px;margin:auto;padding:20px 28px 36px}.grid{display:grid;gap:
 canvas{width:100%;height:225px;background:#091827;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse}th,td{font-size:12px;text-align:left;padding:8px 9px;border-bottom:1px solid #19334d}th{color:#b9cee2;background:#0a1929}tr:last-child td{border:0}.num{text-align:right;font-variant-numeric:tabular-nums}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.scroll{overflow:auto;max-height:390px}pre{margin:0;background:#06111e;border:1px solid var(--line);border-radius:10px;padding:13px;max-height:420px;overflow:auto;color:#bcd0e3;font-size:11px;line-height:1.45;white-space:pre-wrap}.kv{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:12px}.kv div:nth-child(odd){color:var(--muted)}.empty{color:var(--muted);padding:30px;text-align:center}
 @media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.two,.three{grid-template-columns:1fr}}@media(max-width:700px){main{padding:13px}header{padding:16px}.kpis{grid-template-columns:1fr 1fr}.head{display:block}.live{margin-top:10px}.value{font-size:19px}}
 </style></head><body>
-<header><div class="head"><div><div class="title">Fundus Qwen3-VL · Stage1 Arm B</div><div class="sub">English single-lesion CoT · Language LoRA + Vision LoRA · Projector frozen</div></div><div><div class="live"><span class="dot"></span><span id="status">CONNECTING</span></div><div class="sub mono" id="clock"></div></div></div></header>
+<header><div class="head"><div><div class="title">Fundus Qwen3-VL · Stage1 V2</div><div class="sub">Single-stage baseline · Language + Vision LoRA · Projector trainable · automatic checkpoint evaluation</div></div><div><div class="live"><span class="dot"></span><span id="status">CONNECTING</span></div><div class="sub mono" id="clock"></div></div></div></header>
 <main>
 <section class="grid kpis" id="kpis"></section>
 <section class="grid two">
  <div class="panel"><div class="ph"><h2>Training Progress & Loss</h2><span class="badge" id="etaBadge">waiting</span></div><div class="split"><span id="progressText"></span><span id="rateText"></span></div><div class="bar"><div class="fill" id="fill"></div></div><div style="height:12px"></div><canvas id="chart" width="1000" height="300"></canvas></div>
- <div class="panel"><div class="ph"><h2>Run Configuration</h2><span class="badge cyan">Arm B</span></div><div class="kv" id="config"></div></div>
+ <div class="panel"><div class="ph"><h2>Run Configuration</h2><span class="badge cyan">Single-stage V2</span></div><div class="kv" id="config"></div></div>
 </section>
 <section class="grid three">
- <div class="panel"><div class="ph"><h2>Training Distribution</h2><span class="badge">12,650 rows</span></div><div id="dist"></div></div>
+ <div class="panel"><div class="ph"><h2>V2 Added Distribution</h2><span class="badge">13,818 total rows</span></div><div id="dist"></div></div>
  <div class="panel"><div class="ph"><h2>Evidence Tiers</h2><span class="badge">S0 → S4</span></div><div id="tiers"></div></div>
  <div class="panel"><div class="ph"><h2>Evaluation Sets</h2><span class="badge">read-only</span></div><div id="evals"></div></div>
 </section>
@@ -49,7 +49,12 @@ canvas{width:100%;height:225px;background:#091827;border:1px solid var(--line);b
  <div class="panel"><div class="ph"><h2>Recent Trainer Metrics</h2><span class="badge" id="metricCount"></span></div><div class="scroll" id="metrics"></div></div>
  <div class="panel"><div class="ph"><h2>Process & Artifact Health</h2><span class="badge" id="healthBadge"></span></div><div id="health"></div></div>
 </section>
+<section class="grid two">
+ <div class="panel"><div class="ph"><h2>Evaluation Pipeline</h2><span class="badge cyan" id="evalBadge">waiting</span></div><div class="split"><span id="evalProgressText"></span><span id="evalRateText"></span></div><div class="bar"><div class="fill" id="evalFill"></div></div><div style="height:12px"></div><div id="evalSummary"></div></div>
+ <div class="panel"><div class="ph"><h2>Completed Checkpoint Scores</h2><span class="badge" id="scoreCount"></span></div><div class="scroll" id="evalScores"></div></div>
+</section>
 <section class="panel"><div class="ph"><h2>Training Log Tail</h2><span class="badge mono" id="logPath"></span></div><pre id="tail"></pre></section>
+<section class="panel"><div class="ph"><h2>Evaluation Log Tail</h2><span class="badge mono" id="evalLogPath"></span></div><pre id="evalTail"></pre></section>
 </main>
 <script>
 const f=(v,d=2)=>v===null||v===undefined||v===''?'—':typeof v==='number'?v.toFixed(d).replace(/\.?0+$/,''):v;
@@ -63,7 +68,8 @@ document.getElementById('dist').innerHTML=table(['Lesion','Positive','Negative']
 document.getElementById('tiers').innerHTML=table(['Tier','Rows','Meaning'],d.dataset.tiers.map(x=>`<tr><td class="${x.tier==='S0'?'ok':''}">${x.tier}</td><td class="num">${x.rows}</td><td>${x.meaning}</td></tr>`));
 document.getElementById('evals').innerHTML=table(['Set','Rows','Purpose'],d.dataset.evals.map(x=>`<tr><td>${x.name}</td><td class="num">${x.rows}</td><td>${x.purpose}</td></tr>`));
 document.getElementById('metricCount').textContent=`${t.logs.length} metric points`;document.getElementById('metrics').innerHTML=t.logs.length?table(['Step','Epoch','Loss','LR','Grad norm'],t.logs.slice(-25).reverse().map(x=>`<tr><td>${x.step}</td><td>${f(x.epoch,3)}</td><td class="num">${f(x.loss,4)}</td><td class="mono">${x.learning_rate?x.learning_rate.toExponential(2):'—'}</td><td class="num">${f(x.grad_norm,3)}</td></tr>`)):'<div class="empty">Waiting for first optimizer metrics</div>';
-document.getElementById('healthBadge').textContent=d.health.train_processes+' train processes';document.getElementById('health').innerHTML=table(['Item','Value'],Object.entries(d.health).map(([k,v])=>`<tr><td>${k}</td><td class="mono">${v}</td></tr>`));document.getElementById('logPath').textContent=d.log_path;document.getElementById('tail').textContent=d.tail}refresh();setInterval(refresh,2500);
+document.getElementById('healthBadge').textContent=d.health.train_processes+' active processes';document.getElementById('health').innerHTML=table(['Item','Value'],Object.entries(d.health).map(([k,v])=>`<tr><td>${k}</td><td class="mono">${v}</td></tr>`));document.getElementById('logPath').textContent=d.log_path;document.getElementById('tail').textContent=d.tail;
+let e=d.evaluation||{},ep=e.total_steps?Math.min(1,e.step/e.total_steps):0;document.getElementById('evalFill').style.width=(ep*100).toFixed(1)+'%';document.getElementById('evalBadge').textContent=(e.status||'waiting').toUpperCase();document.getElementById('evalProgressText').textContent=e.total_steps?`${e.name||'evaluation'} · ${e.samples_done}/${e.samples_total} samples · ${(ep*100).toFixed(1)}%`:(e.phase||'waiting');document.getElementById('evalRateText').textContent=e.eta_seconds?`ETA ${dur(e.eta_seconds)} · batch ${e.batch_size||'—'}`:'';document.getElementById('evalSummary').innerHTML=table(['Item','Value'],[['Phase',e.phase],['Checkpoint',e.checkpoint],['Batch size',e.batch_size],['Steps',e.total_steps?`${e.step}/${e.total_steps}`:'—'],['ETA',dur(e.eta_seconds)]].map(x=>`<tr><td>${x[0]}</td><td class="mono">${x[1]??'—'}</td></tr>`));let scores=e.scores||[];document.getElementById('scoreCount').textContent=`${scores.length} scored`;document.getElementById('evalScores').innerHTML=scores.length?table(['Candidate','Macro F1','Recall','Specificity','Balanced Acc.'],scores.map(x=>`<tr><td>${x.name}</td><td class="num ok">${f(x.f1,4)}</td><td class="num">${f(x.recall,4)}</td><td class="num">${f(x.specificity,4)}</td><td class="num">${f(x.balanced_accuracy,4)}</td></tr>`)):'<div class="empty">Waiting for the first scored checkpoint</div>';document.getElementById('evalLogPath').textContent=e.log_path||'';document.getElementById('evalTail').textContent=e.tail||''}refresh();setInterval(refresh,2500);
 </script></body></html>"""
 
 
@@ -127,7 +133,7 @@ def _parse_duration_seconds(value: str) -> float | None:
     return None
 
 
-def parse_log(path: Path, started: float) -> dict[str, Any]:
+def parse_log(path: Path, started: float, root: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
     max_match = re.findall(r"Total optimization steps\s*=\s*([0-9,]+)", text)
     max_steps = int(max_match[-1].replace(",", "")) if max_match else 0
@@ -154,30 +160,98 @@ def parse_log(path: Path, started: float) -> dict[str, Any]:
         elapsed = time.time() - started
     seconds_per_step = elapsed / step if step else None
     eta = seconds_per_step * (max_steps - step) if seconds_per_step and max_steps else None
-    processes = run(["pgrep", "-fc", "llamafactory-cli train.*stage1_en_cot.yaml"])
+    processes = run(["pgrep", "-fc", "llamafactory-cli train.*stage1_en_cot_v2_.*.yaml"])
     running = int(processes or 0) > 0
-    completed = (path.parent.parent / "saves/qwen3-vl-8b-fundus/lora/stage1_en_cot/all_results.json").exists()
-    phase = "optimizer steps" if step else ("tokenizing / loading model" if running else "not running")
-    return {"status": "completed" if completed else "running" if running else "stopped", "phase": phase, "step": step, "max_steps": max_steps, "elapsed_seconds": elapsed, "eta_seconds": eta, "seconds_per_step": seconds_per_step, "samples_per_second": 16 / seconds_per_step if seconds_per_step else None, "latest_loss": logs[-1].get("loss") if logs else None, "latest_lr": logs[-1].get("learning_rate") if logs else None, "logs": logs[-250:]}
+    metrics = root / "saves/qwen3-vl-8b-fundus/lora/stage1_eval/v2_single_stage/gold_test/stage1_metrics.json"
+    training_completed = bool(max_steps and step >= max_steps)
+    completed = metrics.exists()
+    eval_running = bool(run(["pgrep", "-f", "stage1_en_cot_v2_.*gold_(dev|test).*yaml"]))
+    phase = "gold_test scored" if completed else "training completed; checkpoint evaluation" if training_completed and eval_running else "training completed" if training_completed else "single-stage V2 optimizer steps" if step else "tokenizing / loading model" if running else "not running"
+    status = "completed" if training_completed or completed else "running" if running else "stopped"
+    return {"status": status, "phase": phase, "step": step, "max_steps": max_steps, "elapsed_seconds": elapsed, "eta_seconds": eta, "seconds_per_step": seconds_per_step, "samples_per_second": 16 / seconds_per_step if seconds_per_step else None, "latest_loss": logs[-1].get("loss") if logs else None, "latest_lr": logs[-1].get("learning_rate") if logs else None, "logs": logs[-250:]}
 
+
+
+def parse_evaluation(root: Path) -> dict[str, Any]:
+    eval_log_dir = root / "logs/stage1_en_cot_v2/eval"
+    eval_root = root / "saves/qwen3-vl-8b-fundus/lora/stage1_eval/v2_single_stage"
+    log_files = sorted(eval_log_dir.glob("*.log"), key=lambda path: path.stat().st_mtime) if eval_log_dir.exists() else []
+    log_path = log_files[-1] if log_files else None
+    text = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
+    name = log_path.stem if log_path else "waiting"
+    checkpoint_match = re.search(r"(checkpoint-\d+|final)", name)
+    checkpoint = checkpoint_match.group(1) if checkpoint_match else None
+    is_test = "gold_test" in name
+    phase = "gold_test" if is_test else "gold_dev checkpoint selection" if "gold_dev" in name else "candidate selection" if "selection" in name else "waiting"
+    batch_match = re.findall(r"Batch size\s*=\s*(\d+)", text)
+    batch_size = int(batch_match[-1]) if batch_match else 4
+    progress = re.findall(r"(\d+)%\|.*?\|\s*(\d+)/(\d+)\s*\[([^\]]+)\]", text)
+    step = int(progress[-1][1]) if progress else 0
+    total_steps = int(progress[-1][2]) if progress else 0
+    eta = None
+    if progress and "<" in progress[-1][3]:
+        right = progress[-1][3].split("<", 1)[1].split(",", 1)[0].strip()
+        eta = _parse_duration_seconds(right)
+    samples_total = 900 if is_test else 596 if "gold_dev" in name else 0
+    samples_done = min(samples_total, step * batch_size) if samples_total else 0
+    scores = []
+    metrics_root = eval_root / "gold_dev"
+    if metrics_root.exists():
+        for metric_path in sorted(metrics_root.glob("*/stage1_metrics.json")):
+            metric = read_json(metric_path)
+            macro = metric.get("main4_macro", {})
+            scores.append({
+                "name": metric_path.parent.name,
+                "f1": macro.get("f1"),
+                "recall": macro.get("recall"),
+                "specificity": macro.get("specificity"),
+                "balanced_accuracy": macro.get("balanced_accuracy"),
+            })
+    final_metrics = eval_root / "gold_test/stage1_metrics.json"
+    eval_processes = int(run(["pgrep", "-fc", "gold_dev_checkpoint|gold_test_selected|run_stage1_v2_posttrain_eval|score_stage1_en_cot"]) or 0)
+    if final_metrics.exists():
+        status = "completed"
+        phase = "gold_test scored"
+    elif eval_processes > 0:
+        status = "running"
+    else:
+        status = "waiting"
+    return {
+        "status": status,
+        "phase": phase,
+        "name": name,
+        "checkpoint": checkpoint,
+        "batch_size": batch_size,
+        "step": step,
+        "total_steps": total_steps,
+        "samples_done": samples_done,
+        "samples_total": samples_total,
+        "eta_seconds": eta,
+        "scores": scores,
+        "log_path": str(log_path) if log_path else "",
+        "tail": tail(log_path, 80) if log_path else "",
+        "processes": eval_processes,
+    }
 
 def dataset_state(stats_path: Path) -> dict[str, Any]:
-    s = read_json(stats_path)
-    train = s.get("sets", {}).get("train", {})
+    stats = read_json(stats_path)
+    selection = stats.get("selection", {})
     dist = []
     tiers = Counter()
-    for raw, count in train.get("counts", {}).items():
-        try:
-            lesion, state, tier, source = ast.literal_eval(raw)
-        except Exception:
-            continue
-        tiers[tier] += count
-    groups = train.get("unique_image_groups", {})
     for lesion in ("MA", "HE", "EX", "SE", "IRMA", "NV"):
-        dist.append({"lesion": lesion, "positive": sum(v for k, v in train.get("counts", {}).items() if k.startswith(f"('{lesion}', 'present'")), "negative": sum(v for k, v in train.get("counts", {}).items() if k.startswith(f"('{lesion}', 'absent'"))})
+        item = selection.get(lesion, {})
+        positive = item.get("added_present", 0)
+        negative = item.get("added_absent", 0)
+        dist.append({"lesion": lesion, "positive": positive, "negative": negative})
+        tiers.update(item.get("present_tiers", {}))
+        tiers.update(item.get("absent_tiers", {}))
     meanings = {"S0": "direct pixel mask", "S1": "explicit lesion label", "S2": "validated RetSAM", "S3": "cleaning-rule negative", "S4": "grade-rule weak negative"}
-    sets = s.get("sets", {})
-    evals = [{"name": "Gold dev", "rows": sets.get("gold_dev", {}).get("n", 0), "purpose": "DDR S0 checkpoint validation"}, {"name": "Gold test", "rows": sets.get("gold_test", {}).get("n", 0), "purpose": "locked Main-4 test"}, {"name": "Weak challenge", "rows": sets.get("weak_negative_challenge", {}).get("n", 0), "purpose": "false-positive stress test"}, {"name": "IRMA locked", "rows": sets.get("irma_locked", {}).get("n", 0), "purpose": "rare lesion recall"}, {"name": "NV locked", "rows": sets.get("nv_locked", {}).get("n", 0), "purpose": "rare lesion recall"}]
+    evals = [
+        {"name": "Gold dev", "rows": 596, "purpose": "checkpoint validation"},
+        {"name": "Gold test", "rows": 900, "purpose": "automatic Main-4 score"},
+        {"name": "Hard negatives", "rows": sum(v.get("hard_negatives", 0) for v in selection.values()), "purpose": "specificity calibration"},
+        {"name": "Base replay", "rows": stats.get("base_replay_rows", 0), "purpose": "preserve Stage1 F1"},
+    ]
     return {"distribution": dist, "tiers": [{"tier": k, "rows": tiers[k], "meaning": meanings[k]} for k in ("S0", "S1", "S2", "S3", "S4")], "evals": evals}
 
 
@@ -188,9 +262,11 @@ def main() -> None:
     ap.add_argument("--root", type=Path, default=Path("/workspace/LLaMA-Factory"))
     args = ap.parse_args()
     root = args.root
-    log = root / "logs/stage1_en_cot_arm_b_train.log"
-    stats = root / "data/annotation_v4/fundus_stage1_en_cot_stats.json"
-    config_path = Path("/workspace/fundus-qwen3vl-project/configs/train/stage1_en_cot.yaml")
+    full_log = root / "logs/stage1_en_cot_v2/train.log"
+    smoke_log = root / "logs/stage1_en_cot_v2_projector_batch2_smoke.log"
+    log = full_log if full_log.exists() else smoke_log
+    stats = root / "data/annotation_v4/fundus_stage1_en_cot_replay_calibration_stats.json"
+    config_path = Path("/workspace/fundus-qwen3vl-project/configs/train/stage1_en_cot_v2_single_stage_projector_batch2.yaml")
     cfg = yaml.safe_load(config_path.read_text())
     started = log.stat().st_mtime if log.exists() else time.time()
 
@@ -199,7 +275,7 @@ def main() -> None:
         def do_GET(self):  # noqa: N802
             if self.path.startswith("/api/state"):
                 disk = shutil.disk_usage(root)
-                payload = {"now": time.time(), "train": parse_log(log, started), "gpu": gpu(), "memory": memory(), "dataset": dataset_state(stats), "config": {"Base model": cfg["model_name_or_path"], "LoRA": f"r={cfg['lora_rank']}, alpha={cfg['lora_alpha']}, dropout={cfg['lora_dropout']}", "Vision tower": "LoRA enabled", "Projector": "frozen", "Learning rate": cfg["learning_rate"], "Effective batch": cfg["per_device_train_batch_size"] * cfg["gradient_accumulation_steps"], "Epochs": cfg["num_train_epochs"], "Image max pixels": cfg["image_max_pixels"], "Precision": "bf16", "Eval set": cfg["eval_dataset"]}, "health": {"train_processes": int(run(["pgrep", "-fc", "llamafactory-cli train.*stage1_en_cot.yaml"]) or 0), "log_size_mb": round(log.stat().st_size / 1048576, 2) if log.exists() else 0, "output_exists": str((root / cfg["output_dir"]).exists()), "disk_free_gb": round(disk.free / 1073741824, 1), "hostname": socket.gethostname(), "public_bind": f"{args.host}:{args.port}"}, "log_path": str(log), "tail": tail(log)}
+                payload = {"now": time.time(), "train": parse_log(log, started, root), "evaluation": parse_evaluation(root), "gpu": gpu(), "memory": memory(), "dataset": dataset_state(stats), "config": {"Base model": cfg["model_name_or_path"], "LoRA": f"r={cfg['lora_rank']}, alpha={cfg['lora_alpha']}, dropout={cfg['lora_dropout']}", "Vision tower": "LoRA enabled", "Projector": "full trainable", "Learning rate": cfg["learning_rate"], "Effective batch": cfg["per_device_train_batch_size"] * cfg["gradient_accumulation_steps"], "Epochs": cfg["num_train_epochs"], "Image max pixels": cfg["image_max_pixels"], "Precision": "bf16", "Eval set": "gold_dev checkpoint gate"}, "health": {"train_processes": int(run(["pgrep", "-fc", "llamafactory-cli train.*stage1_en_cot_v2_.*.yaml"]) or 0), "eval_processes": parse_evaluation(root)["processes"], "log_size_mb": round(log.stat().st_size / 1048576, 2) if log.exists() else 0, "output_exists": str((root / cfg["output_dir"]).exists()), "disk_free_gb": round(disk.free / 1073741824, 1), "hostname": socket.gethostname(), "public_bind": f"{args.host}:{args.port}"}, "log_path": str(log), "tail": tail(log)}
                 body = json.dumps(payload, ensure_ascii=False).encode()
                 self.send_response(200); self.send_header("Content-Type", "application/json; charset=utf-8"); self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
             else:
@@ -207,7 +283,7 @@ def main() -> None:
                 self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"Stage1 Arm B monitor listening on http://{args.host}:{args.port}/", flush=True)
+    print(f"Stage1 calibration monitor listening on http://{args.host}:{args.port}/", flush=True)
     server.serve_forever()
 
 

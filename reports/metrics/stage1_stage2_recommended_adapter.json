@@ -1,0 +1,18 @@
+{
+  "recommended_stage2_start": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-20",
+  "adapter_sha256": "9d35140057356c4fd07bca095b969ac4e80d86faf65134d38c1c37a8130b4976",
+  "selection_dataset": "fundus_stage1_en_cot_gold_dev",
+  "selection_checkpoint": "checkpoint-20",
+  "selection_guardrails": {
+    "macro_f1": true,
+    "HE_preserved": true,
+    "EX_preserved": true,
+    "MA_non_decreasing": true,
+    "SE_non_decreasing": true,
+    "format": true
+  },
+  "gold_test_used_for_selection": false,
+  "fallback_adapter1": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot",
+  "recommendation": "balanced_candidate",
+  "caveat": "Gold-test MA F1 is 0.0088 below Adapter 1; use Adapter 1 instead if zero MA regression is an absolute requirement."
+}

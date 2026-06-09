@@ -1,0 +1,42 @@
+artifact:
+  name: stage1_stage2_handoff_20260609
+  created_at: "2026-06-09"
+  purpose: "Stage 1 final backup and Stage 2 initialization handoff"
+  r2_uri: "s3://fundusv1/models/stage1/stage1_stage2_handoff_20260609.tar.zst"
+  checksum_uri: "s3://fundusv1/models/stage1/stage1_stage2_handoff_20260609.tar.zst.sha256"
+  sha256: "d4defe6fddb47a1a5a881ef11e19fa98f024de3f26921d454c7efd2de56b8471"
+  size_bytes: 780360873
+  archive_format: "tar.zst"
+
+recommended_adapter:
+  role: "stage2_initialization"
+  local_path: "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-20"
+  adapter_model_sha256: "9d35140057356c4fd07bca095b969ac4e80d86faf65134d38c1c37a8130b4976"
+  resumable: true
+
+fallback_adapter:
+  role: "conservative_stage1_baseline"
+  local_path: "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot"
+  adapter_model_sha256: "086bca5057c4e021cbf3f18ec9bb99b1df5a70c7cc3e8f98c1a90c77ec10dea3"
+  resumable_in_this_archive: false
+  existing_full_backup: "s3://fundusv1/models/stage1/stage1_en_cot_20260608_full.tar.gz"
+
+contents:
+  - "adapters/stage1_en_cot_gentle_calibrated_checkpoint-20/"
+  - "adapters/stage1_en_cot_adapter1_fallback/"
+  - "project/reports/"
+  - "project/configs/"
+  - "dataset_stats/"
+  - "RESTORE.md"
+
+selection:
+  selected_on: "Gold Dev"
+  final_evaluation: "Gold Test evaluated once after selection"
+  trusted_lesions:
+    - MA
+    - HE
+    - EX
+    - SE
+  untrusted_lesions:
+    - IRMA
+    - NV

@@ -45,7 +45,7 @@ PY
 "$CLI" train "$PROJECT/configs/train/stage1_en_cot_calibration.yaml" \
   2>&1 | tee "$LOG_DIR/train.log"
 
-"$CLI" train "$PROJECT/configs/eval/stage1_en_cot_calibrated_gold_test.yaml" \
+"$CLI" train "$PROJECT/configs/eval/stage1_en_cot_calibrated_gold_test_fast.yaml" \
   2>&1 | tee "$LOG_DIR/gold_test.log"
 
 "$PYTHON" "$PROJECT/scripts/fundus_v4/score_stage1_en_cot.py" \

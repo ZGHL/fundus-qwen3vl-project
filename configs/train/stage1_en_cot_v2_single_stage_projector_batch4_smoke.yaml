@@ -1,0 +1,57 @@
+### Two-step RTX 5090 batch-4 smoke test
+
+### model
+model_name_or_path: ./models/Qwen3-VL-8B-Instruct
+trust_remote_code: true
+flash_attn: sdpa
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+create_new_adapter: true
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+freeze_vision_tower: false
+additional_target: visual.merger
+freeze_multi_modal_projector: false
+freeze_language_model: false
+
+### dataset
+dataset_dir: data/annotation_v4
+media_dir: data
+dataset: fundus_stage1_en_cot_replay_calibration_train
+template: qwen3_vl_nothink
+cutoff_len: 2304
+overwrite_cache: false
+preprocessing_num_workers: 24
+tokenized_path: saves/qwen3-vl-8b-fundus/dataset/stage1_en_cot_v2_single_stage
+dataloader_num_workers: 4
+
+### qwen3-vl image tokens
+image_max_pixels: 589824
+image_min_pixels: 65536
+
+### output
+output_dir: saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_v2_projector_batch4_smoke
+logging_steps: 1
+save_strategy: "no"
+overwrite_output_dir: true
+report_to: none
+
+### train
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 4
+learning_rate: 3.0e-6
+max_steps: 2
+lr_scheduler_type: cosine
+warmup_steps: 1
+bf16: true
+fp16: false
+gradient_checkpointing: true
+eval_strategy: "no"
+max_grad_norm: 1.0
+optim: adamw_torch
+ddp_timeout: 180000000

@@ -1,0 +1,70 @@
+{
+  "n": 900,
+  "json_parse_success": 1.0,
+  "target_consistency": 1.0,
+  "no_grade_output_rate": 1.0,
+  "main4_macro": {
+    "f1": 0.6523827528296423,
+    "recall": 0.8757690389092119,
+    "specificity": 0.17934144463274107,
+    "balanced_accuracy": 0.5275552417709765
+  },
+  "by_lesion": {
+    "MA": {
+      "n": 225,
+      "positive": 124,
+      "negative": 101,
+      "tp": 79,
+      "fp": 98,
+      "fn": 45,
+      "tn": 3,
+      "precision": 0.4463276836158192,
+      "recall": 0.6370967741935484,
+      "specificity": 0.0297029702970297,
+      "f1": 0.5249169435215947,
+      "balanced_accuracy": 0.33339987224528905
+    },
+    "HE": {
+      "n": 225,
+      "positive": 194,
+      "negative": 31,
+      "tp": 168,
+      "fp": 11,
+      "fn": 26,
+      "tn": 20,
+      "precision": 0.9385474860335196,
+      "recall": 0.865979381443299,
+      "specificity": 0.6451612903225806,
+      "f1": 0.900804289544236,
+      "balanced_accuracy": 0.7555703358829398
+    },
+    "EX": {
+      "n": 225,
+      "positive": 171,
+      "negative": 54,
+      "tp": 171,
+      "fp": 52,
+      "fn": 0,
+      "tn": 2,
+      "precision": 0.7668161434977578,
+      "recall": 1.0,
+      "specificity": 0.037037037037037035,
+      "f1": 0.868020304568528,
+      "balanced_accuracy": 0.5185185185185185
+    },
+    "SE": {
+      "n": 225,
+      "positive": 42,
+      "negative": 183,
+      "tp": 42,
+      "fp": 182,
+      "fn": 0,
+      "tn": 1,
+      "precision": 0.1875,
+      "recall": 1.0,
+      "specificity": 0.00546448087431694,
+      "f1": 0.3157894736842105,
+      "balanced_accuracy": 0.5027322404371585
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "n": 900,
+  "json_parse_success": 1.0,
+  "target_consistency": 0.0,
+  "no_grade_output_rate": 1.0,
+  "main4_macro": {
+    "f1": 0.0,
+    "recall": 0.0,
+    "specificity": 0.0,
+    "balanced_accuracy": 0.0
+  },
+  "by_lesion": {
+    "MA": {
+      "n": 225,
+      "positive": 124,
+      "negative": 101,
+      "tp": 0,
+      "fp": 101,
+      "fn": 124,
+      "tn": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "specificity": 0.0,
+      "f1": 0.0,
+      "balanced_accuracy": 0.0
+    },
+    "HE": {
+      "n": 225,
+      "positive": 194,
+      "negative": 31,
+      "tp": 0,
+      "fp": 31,
+      "fn": 194,
+      "tn": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "specificity": 0.0,
+      "f1": 0.0,
+      "balanced_accuracy": 0.0
+    },
+    "EX": {
+      "n": 225,
+      "positive": 171,
+      "negative": 54,
+      "tp": 0,
+      "fp": 54,
+      "fn": 171,
+      "tn": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "specificity": 0.0,
+      "f1": 0.0,
+      "balanced_accuracy": 0.0
+    },
+    "SE": {
+      "n": 225,
+      "positive": 42,
+      "negative": 183,
+      "tp": 0,
+      "fp": 183,
+      "fn": 42,
+      "tn": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "specificity": 0.0,
+      "f1": 0.0,
+      "balanced_accuracy": 0.0
+    }
+  }
+}

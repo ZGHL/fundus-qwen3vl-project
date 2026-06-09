@@ -1,0 +1,419 @@
+{
+  "selected": {
+    "name": "checkpoint-20",
+    "adapter": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-20",
+    "passed": true,
+    "checks": {
+      "macro_f1": true,
+      "HE_preserved": true,
+      "EX_preserved": true,
+      "MA_non_decreasing": true,
+      "SE_non_decreasing": true,
+      "format": true
+    },
+    "metrics": {
+      "n": 596,
+      "json_parse_success": 1.0,
+      "target_consistency": 0.9899328859060402,
+      "no_grade_output_rate": 1.0,
+      "main4_macro": {
+        "f1": 0.7313766932787065,
+        "recall": 0.7614663488737372,
+        "specificity": 0.3949801439563167,
+        "balanced_accuracy": 0.578223246415027
+      },
+      "by_lesion": {
+        "MA": {
+          "n": 149,
+          "positive": 132,
+          "negative": 17,
+          "tp": 73,
+          "fp": 16,
+          "fn": 59,
+          "tn": 1,
+          "precision": 0.8202247191011236,
+          "recall": 0.553030303030303,
+          "specificity": 0.058823529411764705,
+          "f1": 0.6606334841628959,
+          "balanced_accuracy": 0.30592691622103385
+        },
+        "HE": {
+          "n": 149,
+          "positive": 113,
+          "negative": 36,
+          "tp": 87,
+          "fp": 14,
+          "fn": 26,
+          "tn": 22,
+          "precision": 0.8613861386138614,
+          "recall": 0.7699115044247787,
+          "specificity": 0.6111111111111112,
+          "f1": 0.8130841121495327,
+          "balanced_accuracy": 0.690511307767945
+        },
+        "EX": {
+          "n": 149,
+          "positive": 70,
+          "negative": 79,
+          "tp": 62,
+          "fp": 51,
+          "fn": 8,
+          "tn": 28,
+          "precision": 0.5486725663716814,
+          "recall": 0.8857142857142857,
+          "specificity": 0.35443037974683544,
+          "f1": 0.6775956284153005,
+          "balanced_accuracy": 0.6200723327305606
+        },
+        "SE": {
+          "n": 149,
+          "positive": 86,
+          "negative": 63,
+          "tp": 72,
+          "fp": 28,
+          "fn": 14,
+          "tn": 35,
+          "precision": 0.72,
+          "recall": 0.8372093023255814,
+          "specificity": 0.5555555555555556,
+          "f1": 0.7741935483870968,
+          "balanced_accuracy": 0.6963824289405685
+        }
+      }
+    }
+  },
+  "candidates": [
+    {
+      "name": "checkpoint-10",
+      "adapter": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-10",
+      "passed": true,
+      "checks": {
+        "macro_f1": true,
+        "HE_preserved": true,
+        "EX_preserved": true,
+        "MA_non_decreasing": true,
+        "SE_non_decreasing": true,
+        "format": true
+      },
+      "metrics": {
+        "n": 596,
+        "json_parse_success": 0.9983221476510067,
+        "target_consistency": 0.988255033557047,
+        "no_grade_output_rate": 1.0,
+        "main4_macro": {
+          "f1": 0.7243978243978244,
+          "recall": 0.733151439868357,
+          "specificity": 0.45031039842097176,
+          "balanced_accuracy": 0.5917309191446644
+        },
+        "by_lesion": {
+          "MA": {
+            "n": 149,
+            "positive": 132,
+            "negative": 17,
+            "tp": 73,
+            "fp": 15,
+            "fn": 59,
+            "tn": 2,
+            "precision": 0.8295454545454546,
+            "recall": 0.553030303030303,
+            "specificity": 0.11764705882352941,
+            "f1": 0.6636363636363637,
+            "balanced_accuracy": 0.3353386809269162
+          },
+          "HE": {
+            "n": 149,
+            "positive": 113,
+            "negative": 36,
+            "tp": 84,
+            "fp": 11,
+            "fn": 29,
+            "tn": 25,
+            "precision": 0.8842105263157894,
+            "recall": 0.7433628318584071,
+            "specificity": 0.6944444444444444,
+            "f1": 0.8076923076923077,
+            "balanced_accuracy": 0.7189036381514258
+          },
+          "EX": {
+            "n": 149,
+            "positive": 70,
+            "negative": 79,
+            "tp": 60,
+            "fp": 46,
+            "fn": 10,
+            "tn": 33,
+            "precision": 0.5660377358490566,
+            "recall": 0.8571428571428571,
+            "specificity": 0.4177215189873418,
+            "f1": 0.6818181818181818,
+            "balanced_accuracy": 0.6374321880650995
+          },
+          "SE": {
+            "n": 149,
+            "positive": 86,
+            "negative": 63,
+            "tp": 67,
+            "fp": 27,
+            "fn": 19,
+            "tn": 36,
+            "precision": 0.7127659574468085,
+            "recall": 0.7790697674418605,
+            "specificity": 0.5714285714285714,
+            "f1": 0.7444444444444445,
+            "balanced_accuracy": 0.675249169435216
+          }
+        }
+      }
+    },
+    {
+      "name": "checkpoint-20",
+      "adapter": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-20",
+      "passed": true,
+      "checks": {
+        "macro_f1": true,
+        "HE_preserved": true,
+        "EX_preserved": true,
+        "MA_non_decreasing": true,
+        "SE_non_decreasing": true,
+        "format": true
+      },
+      "metrics": {
+        "n": 596,
+        "json_parse_success": 1.0,
+        "target_consistency": 0.9899328859060402,
+        "no_grade_output_rate": 1.0,
+        "main4_macro": {
+          "f1": 0.7313766932787065,
+          "recall": 0.7614663488737372,
+          "specificity": 0.3949801439563167,
+          "balanced_accuracy": 0.578223246415027
+        },
+        "by_lesion": {
+          "MA": {
+            "n": 149,
+            "positive": 132,
+            "negative": 17,
+            "tp": 73,
+            "fp": 16,
+            "fn": 59,
+            "tn": 1,
+            "precision": 0.8202247191011236,
+            "recall": 0.553030303030303,
+            "specificity": 0.058823529411764705,
+            "f1": 0.6606334841628959,
+            "balanced_accuracy": 0.30592691622103385
+          },
+          "HE": {
+            "n": 149,
+            "positive": 113,
+            "negative": 36,
+            "tp": 87,
+            "fp": 14,
+            "fn": 26,
+            "tn": 22,
+            "precision": 0.8613861386138614,
+            "recall": 0.7699115044247787,
+            "specificity": 0.6111111111111112,
+            "f1": 0.8130841121495327,
+            "balanced_accuracy": 0.690511307767945
+          },
+          "EX": {
+            "n": 149,
+            "positive": 70,
+            "negative": 79,
+            "tp": 62,
+            "fp": 51,
+            "fn": 8,
+            "tn": 28,
+            "precision": 0.5486725663716814,
+            "recall": 0.8857142857142857,
+            "specificity": 0.35443037974683544,
+            "f1": 0.6775956284153005,
+            "balanced_accuracy": 0.6200723327305606
+          },
+          "SE": {
+            "n": 149,
+            "positive": 86,
+            "negative": 63,
+            "tp": 72,
+            "fp": 28,
+            "fn": 14,
+            "tn": 35,
+            "precision": 0.72,
+            "recall": 0.8372093023255814,
+            "specificity": 0.5555555555555556,
+            "f1": 0.7741935483870968,
+            "balanced_accuracy": 0.6963824289405685
+          }
+        }
+      }
+    },
+    {
+      "name": "checkpoint-30",
+      "adapter": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-30",
+      "passed": true,
+      "checks": {
+        "macro_f1": true,
+        "HE_preserved": true,
+        "EX_preserved": true,
+        "MA_non_decreasing": true,
+        "SE_non_decreasing": true,
+        "format": true
+      },
+      "metrics": {
+        "n": 596,
+        "json_parse_success": 0.9983221476510067,
+        "target_consistency": 0.9932885906040269,
+        "no_grade_output_rate": 1.0,
+        "main4_macro": {
+          "f1": 0.7448045401814696,
+          "recall": 0.794374666459972,
+          "specificity": 0.3477747639140044,
+          "balanced_accuracy": 0.5710747151869883
+        },
+        "by_lesion": {
+          "MA": {
+            "n": 149,
+            "positive": 132,
+            "negative": 17,
+            "tp": 83,
+            "fp": 17,
+            "fn": 49,
+            "tn": 0,
+            "precision": 0.83,
+            "recall": 0.6287878787878788,
+            "specificity": 0.0,
+            "f1": 0.7155172413793104,
+            "balanced_accuracy": 0.3143939393939394
+          },
+          "HE": {
+            "n": 149,
+            "positive": 113,
+            "negative": 36,
+            "tp": 92,
+            "fp": 14,
+            "fn": 21,
+            "tn": 22,
+            "precision": 0.8679245283018868,
+            "recall": 0.8141592920353983,
+            "specificity": 0.6111111111111112,
+            "f1": 0.8401826484018264,
+            "balanced_accuracy": 0.7126352015732547
+          },
+          "EX": {
+            "n": 149,
+            "positive": 70,
+            "negative": 79,
+            "tp": 62,
+            "fp": 55,
+            "fn": 8,
+            "tn": 24,
+            "precision": 0.5299145299145299,
+            "recall": 0.8857142857142857,
+            "specificity": 0.3037974683544304,
+            "f1": 0.6631016042780749,
+            "balanced_accuracy": 0.5947558770343581
+          },
+          "SE": {
+            "n": 149,
+            "positive": 86,
+            "negative": 63,
+            "tp": 73,
+            "fp": 33,
+            "fn": 13,
+            "tn": 30,
+            "precision": 0.6886792452830188,
+            "recall": 0.8488372093023255,
+            "specificity": 0.47619047619047616,
+            "f1": 0.7604166666666666,
+            "balanced_accuracy": 0.6625138427464008
+          }
+        }
+      }
+    },
+    {
+      "name": "checkpoint-40",
+      "adapter": "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_en_cot_gentle_calibrated/checkpoint-40",
+      "passed": true,
+      "checks": {
+        "macro_f1": true,
+        "HE_preserved": true,
+        "EX_preserved": true,
+        "MA_non_decreasing": true,
+        "SE_non_decreasing": true,
+        "format": true
+      },
+      "metrics": {
+        "n": 596,
+        "json_parse_success": 1.0,
+        "target_consistency": 0.9899328859060402,
+        "no_grade_output_rate": 1.0,
+        "main4_macro": {
+          "f1": 0.7401627873835106,
+          "recall": 0.7851489715607847,
+          "specificity": 0.3487668274060679,
+          "balanced_accuracy": 0.5669578994834263
+        },
+        "by_lesion": {
+          "MA": {
+            "n": 149,
+            "positive": 132,
+            "negative": 17,
+            "tp": 82,
+            "fp": 17,
+            "fn": 50,
+            "tn": 0,
+            "precision": 0.8282828282828283,
+            "recall": 0.6212121212121212,
+            "specificity": 0.0,
+            "f1": 0.70995670995671,
+            "balanced_accuracy": 0.3106060606060606
+          },
+          "HE": {
+            "n": 149,
+            "positive": 113,
+            "negative": 36,
+            "tp": 90,
+            "fp": 15,
+            "fn": 23,
+            "tn": 21,
+            "precision": 0.8571428571428571,
+            "recall": 0.7964601769911505,
+            "specificity": 0.5833333333333334,
+            "f1": 0.8256880733944955,
+            "balanced_accuracy": 0.6898967551622419
+          },
+          "EX": {
+            "n": 149,
+            "positive": 70,
+            "negative": 79,
+            "tp": 62,
+            "fp": 55,
+            "fn": 8,
+            "tn": 24,
+            "precision": 0.5299145299145299,
+            "recall": 0.8857142857142857,
+            "specificity": 0.3037974683544304,
+            "f1": 0.6631016042780749,
+            "balanced_accuracy": 0.5947558770343581
+          },
+          "SE": {
+            "n": 149,
+            "positive": 86,
+            "negative": 63,
+            "tp": 72,
+            "fp": 31,
+            "fn": 14,
+            "tn": 32,
+            "precision": 0.6990291262135923,
+            "recall": 0.8372093023255814,
+            "specificity": 0.5079365079365079,
+            "f1": 0.7619047619047619,
+            "balanced_accuracy": 0.6725729051310447
+          }
+        }
+      }
+    }
+  ]
+}
