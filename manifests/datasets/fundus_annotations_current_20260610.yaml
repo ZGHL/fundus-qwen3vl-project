@@ -1,0 +1,24 @@
+artifact:
+  name: "fundus_annotations_current_20260610"
+  created_at: "2026-06-10"
+  purpose: "Exact generated annotation snapshot for continuing Stage 1, Stage 1.5, and Stage 2 work"
+  r2_uri: "s3://fundusv1/annotations/fundus_annotations_current_20260610.tar.zst"
+  checksum_uri: "s3://fundusv1/annotations/fundus_annotations_current_20260610.tar.zst.sha256"
+  sha256: "caee6fca253a7acdfdea8a11f8463413641086cb7b9061565f58ed66ce358126"
+  size_bytes: 23050930
+  archive_format: "tar.zst"
+
+contents:
+  - "data/annotation/"
+  - "data/annotation_v4/"
+  - "data/fundus_validated/"
+
+includes:
+  - "Exact Stage 1 train, Gold Dev, Gold Test, weak-negative, IRMA locked, and NV locked JSONL files"
+  - "Exact Stage 1 calibration and Stage 1.5 training JSONL files"
+  - "Current dataset_info.json registrations"
+  - "Validated facts used by Stage 2 dataset builders"
+
+restore:
+  verify: "sha256sum -c fundus_annotations_current_20260610.tar.zst.sha256"
+  extract: "tar --zstd -xf fundus_annotations_current_20260610.tar.zst -C /workspace/LLaMA-Factory"
