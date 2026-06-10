@@ -1,0 +1,58 @@
+artifact:
+  name: "stage1_5_six_lesion_specificity_20260610"
+  created_at: "2026-06-10"
+  purpose: "Preserve the Stage 1.5 specificity-oriented six-lesion research branch"
+  r2_uri: "s3://fundusv1/models/stage1_5/stage1_5_six_lesion_specificity_20260610.tar.zst"
+  checksum_uri: "s3://fundusv1/models/stage1_5/stage1_5_six_lesion_specificity_20260610.tar.zst.sha256"
+  sha256: "70abdffb1b19dcc3eb28b04feccdba526816b2a314af1006f6804deb715f9827"
+  size_bytes: 1750402967
+  archive_format: "tar.zst"
+
+status:
+  accepted_as_stage1_baseline: false
+  accepted_as_specificity_research_branch: true
+  selection_set: "Gold Dev"
+  gold_test_evaluated: false
+  irma_locked_evaluated: false
+  nv_locked_evaluated: false
+  reason: "No checkpoint passed common-lesion F1 preservation guardrails"
+
+preserved_checkpoints:
+  checkpoint_40:
+    role: "highest_stage1_5_gold_dev_macro_f1"
+    local_path: "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_5_six_lesion_limited/checkpoint-40"
+    adapter_model_sha256: "6f16b2edb0c60eb578d9fa13c36d5adab3aaba0e698fde0fad3d8a254c7a051f"
+    resumable: true
+    gold_dev:
+      macro_f1: 0.699060
+      specificity: 0.511481
+      balanced_accuracy: 0.600678
+  checkpoint_80:
+    role: "highest_stage1_5_gold_dev_specificity"
+    local_path: "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_5_six_lesion_limited/checkpoint-80"
+    adapter_model_sha256: "d609858eee6822b030b407bb124382573720381612f452bc01601c688e7ce554"
+    resumable: true
+    gold_dev:
+      macro_f1: 0.668507
+      specificity: 0.591828
+      balanced_accuracy: 0.614797
+  checkpoint_160:
+    role: "highest_stage1_5_gold_dev_balanced_accuracy"
+    local_path: "/workspace/LLaMA-Factory/saves/qwen3-vl-8b-fundus/lora/stage1_5_six_lesion_limited/checkpoint-160"
+    adapter_model_sha256: "c57397db023e2174ff3f30891dddd93d4b066b17b89125a724fc755d69373ca0"
+    resumable: true
+    gold_dev:
+      macro_f1: 0.697882
+      specificity: 0.538344
+      balanced_accuracy: 0.614869
+
+contents:
+  - "Three full resumable checkpoints: 40, 80, and 160"
+  - "Gold Dev predictions and metrics for checkpoints 40, 80, 120, 160, and 180"
+  - "Training and evaluation logs"
+  - "Stage 1.5 training JSONL and statistics"
+  - "Training config, data builder, pipeline script, experiment design, and result report"
+
+restore:
+  verify: "sha256sum -c stage1_5_six_lesion_specificity_20260610.tar.zst.sha256"
+  extract_from_workspace: "tar --zstd -xf stage1_5_six_lesion_specificity_20260610.tar.zst -C /workspace"
