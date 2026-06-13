@@ -1,11 +1,10 @@
-### Stage-1.5 v2 — WARM-START Adapter 1 (RECOMMENDED, VM). Clean eval on Adapter1-unseen test.
-### Train = stage1_5_v3_train (9699: FGADR+DDR seen+unseen + IDRiD, MA/SE boosted, neg capped 1.5x).
-### Eval (post-hoc, vLLM): stage1_5_v2_test (600, all Adapter1-unseen, image-disjoint) -> present/absent + count/area.
+### Stage-1.5 v3 specificity warm-start from Adapter1.
+### Train = 9060 present/absent rows. Eval = 1108 Adapter1-unseen, image-disjoint rows.
 model_name_or_path: ./models/Qwen3-VL-8B-Instruct
 adapter_name_or_path: saves/qwen3-vl-8b-fundus/lora/stage1_en_cot   # Adapter 1 (SHA 086bca...)
 create_new_adapter: false
 trust_remote_code: true
-flash_attn: fa2          # VM: install flash-attn; GB10 fallback -> sdpa
+flash_attn: sdpa
 
 stage: sft
 do_train: true
@@ -24,8 +23,9 @@ dataset: stage1_5_v3_train
 template: qwen3_vl_nothink
 cutoff_len: 2304
 preprocessing_num_workers: 16
-dataloader_num_workers: 8
-overwrite_cache: true
+dataloader_num_workers: 0
+overwrite_cache: false
+tokenized_path: data/tokenized/stage1_5_v3_warmstart_qwen3vl_589824
 
 image_max_pixels: 589824   # match Adapter1 full res on VM (GB10: 262144 for speed)
 image_min_pixels: 65536
@@ -35,12 +35,12 @@ logging_steps: 10
 save_steps: 80
 save_total_limit: 8
 plot_loss: true
-overwrite_output_dir: true
+overwrite_output_dir: false
 report_to: tensorboard
 
-per_device_train_batch_size: 8   # VM larger batch; GB10 use 2
-gradient_accumulation_steps: 2
-learning_rate: 5.0e-6
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 8
+learning_rate: 3.0e-6
 num_train_epochs: 2.0
 lr_scheduler_type: cosine
 warmup_ratio: 0.1
@@ -48,5 +48,5 @@ bf16: true
 fp16: false
 max_grad_norm: 1.0
 optim: adamw_torch
-gradient_checkpointing: false
+gradient_checkpointing: true
 ddp_timeout: 180000000
