@@ -40,3 +40,14 @@
 
 ## 5. 环境坑（GB10 实记，VM 注意）
 - `pip install liger-kernel` 会把 NVIDIA 内部 `pytorch_triton 3.1.0` 覆盖成 PyPI `triton 3.7.0` → vLLM 0.14.1 崩（`AttrsDescriptor`/`target_info`）。修复=从镜像还原 triton 3.1.0。**VM 上同样别装 liger。**
+
+---
+# v2（最终推荐）warm-start 训练 + 干净评测
+
+- **config**:`configs/stage1_5_v2_warmstart.yaml`(warm-start Adapter1;VM 用 fa2+大batch+589824;GB10 用 sdpa+batch2+262144)。
+- **数据**:`stage1_5_v2_train`(9699)/ `stage1_5_v2_test`(600,Adapter1 未见、干净)。R2:`s3://fundusv1/datasets/stage1_5_v2_20260613.tar.zst` (SHA256 83c931b4c6c581def7f665ae756b6bc5cd731ca133ba6cc59db237cf38ac23e9)。
+- **评测(vLLM)**:在 `stage1_5_v2_test` 上跑 baseline=Adapter1 与 trained,二者**都没见过该 test → 公平**:
+  - present/absent:per-lesion F1/Recall/**Spec** + macro(看特异度是否因封顶负样本提升、MA/SE 是否改善)。
+  - count/area 桶:`scripts/score_proof.py`(改测试文件为 `stage1_5_v2_test`)。
+- **成功标准**:present/absent 不低于 Adapter1 且特异度↑、MA/SE 改善;count/area 桶准确率显著 >0.33。
+- Gold-Test 仅作参考(自身 14% 泄漏);IDRiD 不作 warm-start 外部(100% 泄漏)。

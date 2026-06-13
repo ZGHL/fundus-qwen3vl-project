@@ -95,10 +95,18 @@ def make_row(img, les, fact, tert, source):
                      "count": fact["count"], "count_bucket": attrs.get("count_bucket"),
                      "area_bucket": attrs.get("area_bucket"), "area_frac": round(fact["frac"], 6)}}
 
+EXCLUDE = set()
+_exf = f"{EXP}/data/exclude_ids.txt"
+if os.path.exists(_exf):
+    EXCLUDE = {l.strip() for l in open(_exf) if l.strip()}
+
 def build_fresh(records, maskfn, source, train, test):
     # pass1 facts + tertiles
     facts = {}; fracs = defaultdict(list)
     for img in records:
+        iid0 = os.path.splitext(os.path.basename(img))[0]
+        if iid0 in EXCLUDE:  # drop Gold-Dev/Test + locked image_groups (benchmark validity)
+            continue
         for les in MAIN4:
             f = mask_fact(maskfn(img, les))
             if f is None: continue
@@ -118,14 +126,17 @@ def main():
     train, test = [], []
     tert_fg = build_fresh(fg_imgs, fg_mask, "fgadr_mask", train, test)
     tert_ddr = build_fresh(ddr_imgs, ddr_mask, "ddr_mask", train, test)
-    # reuse IDRiD S0 from existing stage1 train
-    idrid_reused = 0
+    # IDRiD S0 from existing stage1 train -> held out ENTIRELY as external cross-dataset test
+    idrid_ext = []
     if os.path.exists(TRAIN_S1):
         for l in open(TRAIN_S1):
             r = json.loads(l); m = r.get("meta", {})
             if m.get("evidence_source") == "strong_mask_stage1_easy":
                 r["meta"]["evidence_level"] = "S0"; r["meta"].setdefault("dataset", "idrid")
-                train.append(r); idrid_reused += 1
+                idrid_ext.append(r)
+    idrid_reused = len(idrid_ext)
+    with open(f"{OUT}/stage1_5_idrid_external_sft.jsonl", "w") as fo:
+        for r in idrid_ext: fo.write(json.dumps(r, ensure_ascii=False) + "\n")
     train = sorted(train, key=lambda x: h(x["meta"]["record_id"] + x["meta"]["lesion"] + x["meta"]["present_state"]))
     def stats(rows):
         ls = Counter((r["meta"]["lesion"], r["meta"]["present_state"]) for r in rows)
