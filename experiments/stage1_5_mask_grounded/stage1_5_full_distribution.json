@@ -1,0 +1,80 @@
+{
+ "train": {
+  "n": 9188,
+  "by_dataset": {
+   "ddr": 2636,
+   "fgadr": 6280,
+   "idrid": 272
+  },
+  "lesion_state": {
+   "EX/absent": 729,
+   "EX/present": 1567,
+   "HE/absent": 476,
+   "HE/present": 1820,
+   "MA/absent": 514,
+   "MA/present": 1786,
+   "SE/absent": 1515,
+   "SE/present": 781
+  }
+ },
+ "test": {
+  "n": 1480,
+  "by_dataset": {
+   "fgadr": 1088,
+   "ddr": 392
+  },
+  "lesion_state": {
+   "EX/absent": 105,
+   "EX/present": 265,
+   "HE/absent": 67,
+   "HE/present": 303,
+   "MA/absent": 91,
+   "MA/present": 279,
+   "SE/absent": 251,
+   "SE/present": 119
+  }
+ },
+ "idrid_reused": 272,
+ "area_tertiles": {
+  "fgadr": {
+   "MA": [
+    0.00033153076171875005,
+    0.001141357421875
+   ],
+   "HE": [
+    0.0031389465332031254,
+    0.010058288574218753
+   ],
+   "EX": [
+    0.0015605957031250002,
+    0.0071029541015625005
+   ],
+   "SE": [
+    0.0016157348632812503,
+    0.0041832763671875006
+   ]
+  },
+  "ddr_seg": {
+   "MA": [
+    7.698908323661334e-05,
+    0.00023680412665752178
+   ],
+   "HE": [
+    0.00045272803646716556,
+    0.002038287421770801
+   ],
+   "EX": [
+    0.0003760385609321854,
+    0.0016083237665935563
+   ],
+   "SE": [
+    0.0006603652263374487,
+    0.0015086662665752175
+   ]
+  }
+ },
+ "min_px": 5,
+ "count_buckets": "single/few(2-5)/many(>5)",
+ "area_buckets": "per-(dataset,lesion) tertiles small/medium/large",
+ "note": "FGADR+DDR-seg fresh (all present+negatives), IDRiD reused S0; zero-crop all."
+}

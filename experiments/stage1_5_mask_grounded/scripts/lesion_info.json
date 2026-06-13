@@ -1,0 +1,44 @@
+{
+ "MA": {
+  "name": "microaneurysm",
+  "visual": "tiny, round, relatively well-defined red dot-like abnormalities",
+  "exclude": "normal vessel crossings, imaging noise, artifacts, and larger dot or blot hemorrhages",
+  "positive_confounder": "They are spatially separate from vessel crossings and are smaller and more sharply punctate than typical dot or blot hemorrhages.",
+  "negative_confounder": "Any visible dark-red structures are better explained by normal vessels, vessel crossings, larger hemorrhages, or image noise."
+ },
+ "HE": {
+  "name": "retinal hemorrhage",
+  "visual": "dark-red dot, blot, flame-shaped, or irregular hemorrhagic abnormalities",
+  "exclude": "normal retinal vessels, vessel crossings, microaneurysms, pigmentation, and dark imaging artifacts",
+  "positive_confounder": "The findings are not explained by normal vessels, tiny isolated microaneurysms, pigmentation, or dark image artifacts.",
+  "negative_confounder": "Visible dark structures are better explained by normal vessels, vessel crossings, pigmentation, or image artifacts."
+ },
+ "EX": {
+  "name": "hard exudate",
+  "visual": "bright yellow-white deposits with relatively sharp and well-defined borders",
+  "exclude": "the optic disc, imaging reflections, glare, soft exudates, and other bright artifacts",
+  "positive_confounder": "The sharp deposit-like findings are distinct from the optic disc, glare, reflections, and fluffy soft exudates.",
+  "negative_confounder": "Visible bright regions are better explained by the optic disc, glare, reflections, soft exudates, or other artifacts."
+ },
+ "SE": {
+  "name": "soft exudate or cotton-wool spot",
+  "visual": "gray-white or pale fluffy lesions with soft, indistinct borders",
+  "exclude": "hard exudates, optic-disc margins, glare, overexposed regions, and other bright artifacts",
+  "positive_confounder": "The fluffy, indistinct findings are distinct from sharply bordered hard exudates, the optic disc, glare, and overexposure.",
+  "negative_confounder": "Visible bright regions are better explained by hard exudates, the optic disc, glare, overexposure, or other artifacts."
+ },
+ "IRMA": {
+  "name": "intraretinal microvascular abnormality",
+  "visual": "irregular, dilated, or tortuous intraretinal vascular channels, often near ischemic retinal regions",
+  "exclude": "normal vessel branching, overlapping vessels, neovascularization, and vascular imaging artifacts",
+  "positive_confounder": "The abnormal intraretinal vascular channels are not explained by normal branching, overlapping vessels, or neovascularization.",
+  "negative_confounder": "Visible vascular patterns are better explained by normal branching, overlapping vessels, or vascular artifacts."
+ },
+ "NV": {
+  "name": "neovascularization",
+  "visual": "an abnormal fine new-vessel network on the optic disc or elsewhere in the retina, often crossing normal vascular planes",
+  "exclude": "normal vessel branching, peripapillary vessels, intraretinal microvascular abnormalities, and vascular artifacts",
+  "positive_confounder": "The fine abnormal vessel network is not explained by normal branching, peripapillary vessels, IRMA, or vascular artifacts.",
+  "negative_confounder": "Visible vascular patterns are better explained by normal branching, peripapillary vessels, IRMA, or vascular artifacts."
+ }
+}
