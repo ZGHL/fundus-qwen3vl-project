@@ -51,3 +51,13 @@
   - count/area 桶:`scripts/score_proof.py`(改测试文件为 `stage1_5_v2_test`)。
 - **成功标准**:present/absent 不低于 Adapter1 且特异度↑、MA/SE 改善;count/area 桶准确率显著 >0.33。
 - Gold-Test 仅作参考(自身 14% 泄漏);IDRiD 不作 warm-start 外部(100% 泄漏)。
+
+---
+# v3（特异度修正版,推荐当前主线）
+v2 教训:count/area 不泛化(干净集 ~0.25)、特异度仍低(0.29)。v3 改:
+- **CoT 退回纯 present/absent**(无 count/area;即 Adapter1 已会的格式,warm-start 只做重平衡)。
+- **负样本加猛**:present:absent≈1:1.3;硬负=空 mask 的 DR 图,**干净负=grade-0 图(每病灶 +2055,救 MA)**。
+- 数据:`stage1_5_v3_{train,test}`;train 9060(每病灶 present~1000/absent 1300),test 1108(全 Adapter1 未见;MA 负样本 158,可靠测 spec)。R2:`s3://fundusv1/datasets/stage1_5_v3_20260613.tar.zst`(SHA 52644d761ca2be4c86f92c532bb9b66778de0bd83a3fcdc9366e4355d9e0ca69)。
+- config:`configs/stage1_5_v3_warmstart.yaml`(warm-start Adapter1,dataset=stage1_5_v3_train,output stage1_5_v3)。
+- **评测必须修好 baseline**:Adapter1 与 v3 都用同一(合并+tokenizer 修正)路径在 `stage1_5_v3_test` 上推理,`score_proof.py` 出 present/absent F1/Recall/**Spec**(count/area 自动跳过)→ 干净头对头看特异度是否上去。
+- 目标:macro/per-lesion 特异度明显 > v2 的 0.29、MA spec >0,present/absent recall 不塌。

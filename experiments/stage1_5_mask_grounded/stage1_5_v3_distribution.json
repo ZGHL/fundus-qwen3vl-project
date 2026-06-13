@@ -1,0 +1,46 @@
+{
+ "train": {
+  "n": 9060,
+  "lesion_state": {
+   "EX/absent": 1300,
+   "EX/present": 1000,
+   "HE/absent": 1300,
+   "HE/present": 1000,
+   "MA/absent": 1300,
+   "MA/present": 1000,
+   "SE/absent": 1300,
+   "SE/present": 860
+  },
+  "by_source": {
+   "ddr_mask": 2023,
+   "grade0_neg": 2055,
+   "fgadr_mask": 4852,
+   "strong_mask": 130
+  },
+  "all_unseen": false
+ },
+ "test": {
+  "n": 1108,
+  "lesion_state": {
+   "EX/absent": 186,
+   "EX/present": 91,
+   "HE/absent": 168,
+   "HE/present": 109,
+   "MA/absent": 158,
+   "MA/present": 119,
+   "SE/absent": 237,
+   "SE/present": 40
+  },
+  "by_source": {
+   "fgadr_mask": 440,
+   "ddr_mask": 168,
+   "grade0_neg": 500
+  },
+  "all_unseen": true
+ },
+ "pres_cap": 1000,
+ "abs_cap": 1300,
+ "n_test_mask_img": 150,
+ "n_test_g0_img": 120,
+ "note": "present/absent only (no count/area); aggressive negatives (mask-empty hard + grade-0 clean); warm-start Adapter1"
+}
