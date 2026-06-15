@@ -89,14 +89,19 @@ def canon_lesion(tok):
 
 
 def audit_from_text(t):
-    """Recover MA/HE/EX/SE present-set from the [Lesion Audit] lines (rescues truncated JSON).
-    A lesion counts as present only on an explicit '<code>: present' line."""
-    present = set()
+    """Recover MA/HE/EX/SE audit from the [Lesion Audit] lines (rescues truncated JSON).
+    Returns (present_set, complete): a lesion is present only on an explicit
+    '<code>: present' line; `complete` is True only when ALL FOUR lesions have an explicit
+    present|absent verdict. Missing a lesion line is NOT treated as absent -> the audit is
+    incomplete and must not be scored (avoids a falsely-valid 'all absent -> No-DR')."""
+    present, resolved = set(), set()
     for code in LES4:
         # e.g.  "- MA: present — ..."   /  "MA : present"
         if re.search(rf"(?mi)^\s*[-*]?\s*{code}\s*[:：]\s*present\b", t):
-            present.add(code)
-    return present
+            present.add(code); resolved.add(code)
+        elif re.search(rf"(?mi)^\s*[-*]?\s*{code}\s*[:：]\s*absent\b", t):
+            resolved.add(code)
+    return present, len(resolved) == len(LES4)
 
 
 def nv_irma_fabricated(j, text):
@@ -119,10 +124,11 @@ def pattern_key(present):
 def extract_present(j, text):
     """Return (present_set, source) where source in {json, audit, none}."""
     if j is not None and isinstance(j.get("lesions_present"), list):
+        # a parsed JSON list is complete by schema (absent lesions are simply omitted)
         pres = {c for c in (canon_lesion(x) for x in j["lesions_present"]) if c}
         return pres, "json"
-    pres = audit_from_text(text)
-    if pres or re.search(r"(?mi)\[lesion audit\]", text):
+    pres, complete = audit_from_text(text)
+    if complete:   # require all 4 lesions explicitly resolved; else unrecoverable
         return pres, "audit"
     return set(), "none"
 
