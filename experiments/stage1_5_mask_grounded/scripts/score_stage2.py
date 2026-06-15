@@ -172,8 +172,13 @@ def qwk(true_idx, pred_idx, k=5):
     return 1.0 - num / den if den else 0.0
 
 
-def evaluate(test, preds, from_audit, fmap):
-    """Core scorer. Returns (metrics dict, confusion Counter, src Counter, per-tier F1 list)."""
+def evaluate(test, preds, from_audit, fmap, true_map=None):
+    """Core scorer. Returns (metrics dict, confusion Counter, src Counter, per-tier F1 list).
+
+    true_map: if given, the true faithful tier is RE-DERIVED as true_map[pattern(GT presence)]
+    instead of meta['dr_tier']. Use it during a map sweep so the truth and the prediction are
+    scored under the SAME decision rule (otherwise QWK just measures drift from the fixed
+    0.60-map labels). Referable/severe metrics always use clinical_grade and are unaffected."""
     n = min(len(test), len(preds))
 
     valid = 0
@@ -190,7 +195,11 @@ def evaluate(test, preds, from_audit, fmap):
 
     for r, raw in zip(test[:n], preds[:n]):
         meta = r["meta"]
-        true_tier = meta["dr_tier"]               # GT-presence faithful target (true label)
+        if true_map is not None and meta.get("pattern"):
+            gt_present = {c for c, b in zip(LES4, meta["pattern"]) if b}
+            true_tier = true_map.get(pattern_key(gt_present), meta["dr_tier"])
+        else:
+            true_tier = meta["dr_tier"]           # GT-presence faithful target (true label)
         cg = meta["clinical_grade"]
         clin_ref = cg >= 2
         j = last_json(raw)
