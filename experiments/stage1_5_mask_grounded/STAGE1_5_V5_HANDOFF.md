@@ -28,6 +28,19 @@ each lesion on its own bottleneck: **push HE recall, push MA/SE specificity, lea
 - **No RetSAM weak SE.** RetSAM SE is low-confidence and was suppressed in cleaning; adding it
   would be both noisy and the wrong direction (more SE positives). v5 stays real-mask-only.
 
+## 3-way split (NEW in v5): train / dev / test, image-disjoint
+The build now emits **three** image-disjoint sets so we never select the checkpoint on the set we
+report:
+- `stage1_5_v5_train` — training.
+- `stage1_5_v5_dev` — **checkpoint selection ONLY** (150 mask + 120 grade-0 images, Adapter1-unseen).
+- `stage1_5_v5_test` — **final number, never touched during selection**; first-slice selection ==
+  v3/v4 test → the base→Adapter1→v3→v4→v5 ladder stays directly comparable.
+
+DEV is carved from the Adapter1-unseen pool that would otherwise feed train (build asserts the pool
+is large enough and that DEV∩TEST=∅), so train loses ~150 images — negligible for HE/MA/EX, and SE
+present drops ~860→~820 (SE is data-capped anyway; an honest limitation). Selecting on macro-BalAcc
+(dominated by the well-powered lesions) keeps DEV's small SE count from biasing the choice.
+
 ## Kept identical to v3/v4 (so the ladder stays comparable, eval stays leak-free)
 - Single-lesion present/absent CoT (no count/area), Adapter1 warm-start, recipe = v3 (LR 3e-6,
   batch 2×8, gc on, sdpa).
@@ -36,33 +49,52 @@ each lesion on its own bottleneck: **push HE recall, push MA/SE specificity, lea
 - Stage-2 test stems excluded from TRAIN (`data/stage2_test_heldout_stems.txt`) + build asserts no
   leak → warm-starting Stage-2 from v5 and evaluating on the Stage-2 test is leak-free.
 
+## Preprocessing: pay the ~20-min tokenize/image pass ONCE
+The old configs had `overwrite_cache: true`, which forced a full re-preprocess on EVERY run. v5
+config fixes this:
+- `tokenized_path: data/tokenized/stage1_5_v5_train` — first run writes the preprocessed dataset
+  there; every later run (resume/retune/restart) loads it in seconds. Put it on PERSISTENT disk.
+- `overwrite_cache: false` — reuse the cache (auto-invalidates if data/tokenizer/cutoff/pixels change).
+- `preprocessing_num_workers: 16` — set to the new VM's `nproc` (higher = faster first pass).
+- Apply patches first (`scripts/setup/apply_llamafactory_patches.sh`) incl. the truncated-Pillow
+  patch, or preprocessing can stall/fail on bad images.
+- Data-scaling arms (25/50/100%) are different datasets → give each its OWN `tokenized_path`.
+
 ## Steps (VM)
 ```bash
-cd /workspace/stage1_5_experiment && git pull     # build_stage1_5_v5.py + config
+cd /workspace/stage1_5_experiment && git pull     # build_v5 + config + dev sweep scripts
 
-# 1) build (real FGADR/DDR-seg masks + grade-0 negatives; reads stage2_test_heldout_stems.txt)
+# 1) build TRAIN/DEV/TEST (real FGADR/DDR-seg masks + grade-0 negatives; reads heldout stems)
 python scripts/build_stage1_5_v5.py
 #   SANITY-CHECK the printed distribution before training:
 #     - HE/present clearly > v3's 1000 (expect ~1700-1800); MA/absent ~2000; SE/absent ~2000
 #     - SE/present ~860 (NOT inflated), EX unchanged ~1000/1300
 #     - by_source has NO grade-derived / RetSAM source; only fgadr_mask/ddr_mask/grade0_neg/strong_mask
-#     - stage2_test_stems_excluded_from_train = 297; build ASSERTS no Stage-2 test stem leaked
+#     - stage2_test_stems_excluded_from_train = 297; ASSERTS no leak and DEV∩TEST=∅
+#     - three files written: stage1_5_v5_{train,dev,test}_sft.jsonl
 
-# 2) register stage1_5_v5_train / stage1_5_v5_test in data/annotation/dataset_info.json
-#    (sharegpt, columns messages,images) — same as v3/v4 registration.
+# 2) register stage1_5_v5_train / stage1_5_v5_dev / stage1_5_v5_test in data/annotation/dataset_info.json
+#    (sharegpt, columns messages,images) — same as v3/v4 registration. DEV+TEST needed by vllm_infer --dataset.
 
-# 3) train (warm-start Adapter1, recipe identical to v3/v4)
+# 3) train (warm-start Adapter1, recipe identical to v3/v4; first run pays preprocess ONCE -> tokenized_path)
 llamafactory-cli train configs/stage1_5_v5_warmstart.yaml
 
-# 4) EVAL the full ladder on the v3/v4-identical test, via vLLM + merged model:
-#    (merge LoRA via llamafactory-cli export, fix tokenizer_config extra_special_tokens list->{},
-#     then vLLM the merged model — avoids the dynamic visual-LoRA assertion and the all-`!` bug.)
-python scripts/vllm_infer.py --adapter_name_or_path saves/.../stage1_5_v5/checkpoint-XXX \
-    --max_lora_rank 32 --enforce_eager true        # predictions on stage1_5_v5_test
-python scripts/score_proof.py data/stage1_5_v5_test_sft.jsonl <v5_pred.jsonl>   # present/absent F1/Recall/Spec
-python scripts/perception_ladder.py data/stage1_5_v5_test_sft.jsonl \
-    base:preds/base.jsonl adapter1:preds/adapter1.jsonl v3:preds/v3.jsonl v5:preds/v5.jsonl \
-    eval/STAGE1_PERCEPTION_LADDER_v5.md
+# 4) SELECT the checkpoint on DEV (never on TEST). Single GPU -> run after training; second GPU -> POLL=1.
+EXP=/workspace/stage1_5_experiment LF=/workspace/LLaMA-Factory bash scripts/run_stage1_5_v5_dev_sweep.sh
+#   -> writes eval/v5_dev/dev_curve.csv (step vs macro-BalAcc + per-lesion recall/spec) and prints
+#      the peak checkpoint. The curve flattening = "learned enough"; its peak = the checkpoint to keep.
+
+# 5) FINAL number: run the SELECTED checkpoint ONCE on TEST, then the ladder (TEST never used in step 4):
+cd /workspace/LLaMA-Factory && python scripts/vllm_infer.py \
+    --model_name_or_path models/Qwen3-VL-8B-Instruct \
+    --adapter_name_or_path saves/qwen3-vl-8b-fundus/lora/stage1_5_v5/checkpoint-<BEST> \
+    --dataset stage1_5_v5_test --dataset_dir data/annotation --media_dir data \
+    --template qwen3_vl_nothink --cutoff_len 2304 --max_new_tokens 512 \
+    --image_max_pixels 589824 --image_min_pixels 65536 --batch_size 16 --enforce_eager true \
+    --max_lora_rank 32 --gpu_memory_utilization 0.80 --save_name $EXP/eval/v5_test.jsonl
+python $EXP/scripts/perception_ladder.py data/annotation/stage1_5_v5_test_sft.jsonl \
+    base:preds/base.jsonl adapter1:preds/adapter1.jsonl v3:preds/v3.jsonl v4:preds/v4.jsonl \
+    v5:$EXP/eval/v5_test.jsonl  $EXP/eval/STAGE1_PERCEPTION_LADDER_v5.md
 ```
 
 ## Success criteria (accept v5 only if ALL hold; per-lesion, on the identical test)
