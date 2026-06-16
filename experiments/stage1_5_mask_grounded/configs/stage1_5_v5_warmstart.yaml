@@ -1,0 +1,55 @@
+### Stage-1.5 v5 — PER-LESION rebalance. RECIPE MUST MATCH v3/v4 EXACTLY (only data changed).
+### Mirrors the v3 RUN as reported by VM (LR 3e-6, batch 2x8, gc on, sdpa).
+### >>> If your actual v3/v4 run config differs in ANY field, take that config verbatim and change
+###     ONLY `dataset` -> stage1_5_v5_train and `output_dir` -> .../stage1_5_v5. The whole point is
+###     an apples-to-apples comparison: optimizer/batch/attn/cache must be identical, so the only
+###     variable is the per-lesion rebalanced data. <<<
+model_name_or_path: ./models/Qwen3-VL-8B-Instruct
+adapter_name_or_path: saves/qwen3-vl-8b-fundus/lora/stage1_en_cot   # Adapter 1 (SHA 086bca...), same start as v3/v4
+create_new_adapter: false
+trust_remote_code: true
+flash_attn: sdpa          # match v3 run
+
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+freeze_vision_tower: false
+freeze_multi_modal_projector: true
+freeze_language_model: false
+
+dataset_dir: data/annotation
+media_dir: data
+dataset: stage1_5_v5_train          # <-- the ONLY substantive change vs v3/v4
+template: qwen3_vl_nothink
+cutoff_len: 2304
+preprocessing_num_workers: 16
+dataloader_num_workers: 8
+overwrite_cache: true
+
+image_max_pixels: 589824
+image_min_pixels: 65536
+
+output_dir: saves/qwen3-vl-8b-fundus/lora/stage1_5_v5   # <-- changed vs v3/v4
+logging_steps: 10
+save_steps: 80
+save_total_limit: 10
+plot_loss: true
+overwrite_output_dir: true
+report_to: tensorboard
+
+per_device_train_batch_size: 2      # match v3 run (2 x 8)
+gradient_accumulation_steps: 8      # match v3 run
+learning_rate: 3.0e-6               # match v3 run (NOT 5e-6)
+num_train_epochs: 2.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+fp16: false
+max_grad_norm: 1.0
+optim: adamw_torch
+gradient_checkpointing: true        # match v3 run
+ddp_timeout: 180000000
