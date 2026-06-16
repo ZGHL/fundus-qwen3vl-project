@@ -93,34 +93,63 @@ BalAcc 0.638→0.742，代价是特异度 0.941→0.626（即把 MA/SE 推到过
 
 ---
 
-## V5 数据划分（本次新版 · 三分法；设计目标，实际以 `build_stage1_5_v5.py` 输出为准）
+## V5 数据划分（本次新版 · 三分法；已按本机 build 精确填入）
 
 v5 相对 v3 两处变化：**逐病灶差异化 cap**（HE 抬正样本、MA/SE 抬负样本、EX 不变）+ **3-way split**（新增独立 DEV）。
+以下计数来自本机实际生成的：
 
-### 训练集 `stage1_5_v5_train`（设计目标）
+- `data/annotation/stage1_5_v5_train_sft.jsonl`
+- `data/annotation/stage1_5_v5_dev_sft.jsonl`
+- `data/annotation/stage1_5_v5_test_sft.jsonl`
+- `stage1_5_v5_distribution.json`
 
-| 病灶 | present (目标 cap) | absent (cap) | present:absent | 相对 v3 的动作 |
+### 训练集 `stage1_5_v5_train`（精确 build 输出）
+
+| 病灶 | present | absent | present:absent | 相对 v3 的动作 |
 |---|---:|---:|---|---|
-| HE | 1800 | 1300 | ~1.4 : 1 | **正样本 1000→1800（抬召回）** |
+| HE | 1800 | 1300 | 1.38 : 1 | **正样本 1000→1800（抬召回）** |
 | EX | 1000 | 1300 | 0.77 : 1 | 不变 |
 | MA | 1000 | 2000 | 1 : 2 | **负样本 1300→2000（抬特异度）** |
-| SE | ≤860（真 mask 用满） | 2000 | ~1 : 2.3 | **负样本 1300→2000（抬特异度）；正样本不加** |
+| SE | 779 | 2000 | 0.39 : 1 | **负样本 1300→2000（抬特异度）；正样本不加弱标** |
+| **合计** | **4579** | **6600** | — | **11179 行** |
 
-> 注：present 受真实 mask 数量上限约束；且 DEV 会从"未见池"再切走 ~150 张 mask 图 →
-> 实际 HE present 可能略低于 1800、SE present 略低于 860。MA/SE 的 absent 优先取 confounder-rich 的 DR 图。
-> **以上为目标值；`build_stage1_5_v5.py` 运行后会打印精确分布，届时替换本表。**
+| 视角 | 精确拆分 |
+|---|---|
+| 行数 / 图像数 | **11179 行 / 3878 张图像** |
+| 按 evidence_source | ddr_mask 2297 ・ fgadr_mask 5206 ・ grade0_neg 3496 ・ strong_mask 180 |
+| all_unseen | false（训练允许包含 Adapter1 见过图，因为 warm-start 训练集不是最终评估集） |
+| Stage-2 heldout 排除 | 297 个 stems；跳过 mask 424 行、grade0 220 行 |
+
+> 注：SE present 实际为 **779**，低于 v3 的 860 和目标 cap 1000；原因是 v5 新增 DEV split 后会从未见 mask 池切走一部分 SE 阳性，且仍坚持真实 mask-only，不用 RetSAM/grade 弱标硬补。
 
 ### 验证集 `stage1_5_v5_dev`（新增，仅用于选 checkpoint）
 
 | 项 | 值 |
 |---|---|
-| 图像 | 150 张 mask 图 + 120 张 grade-0 图 |
-| 互斥性 | Adapter1 未见，且与 TRAIN、TEST **图像级三方互斥**（build 内置 assert） |
-| 行数 | ~1100（待 build 确认） |
-| 逐病灶 present/absent | 待 build 后填（结构同 TEST，规模相近） |
+| 图像 | **269 张图像**（目标 150 张 mask 图 + 120 张 grade-0 图；去重后 269 张） |
+| 行数 | **1104** |
+| 按 evidence_source | fgadr_mask 404 ・ ddr_mask 196 ・ grade0_neg 504 |
+| all_unseen | true |
+| 互斥性 | 与 TRAIN、TEST 图像级三方互斥（本机独立校验 overlap=0） |
 | 用途 | 跑 DEV-BalAcc 曲线选 checkpoint；**绝不用于最终汇报** |
 
-### 测试集 `stage1_5_v5_test`（= v3 test，精确已知，训练全程不碰）
+| 病灶 | present | absent | 小计 |
+|---|---:|---:|---:|
+| MA | 115 | 161 | 276 |
+| HE | 118 | 158 | 276 |
+| EX | 96 | 180 | 276 |
+| SE | 38 | 238 | 276 |
+| **合计** | **367** | **737** | **1104** |
+
+### 测试集 `stage1_5_v5_test`（= v3 test，训练全程不碰）
+
+| 项 | 值 |
+|---|---|
+| 图像 | **269 张图像**（目标 150 张 mask 图 + 120 张 grade-0 图；去重后 269 张） |
+| 行数 | **1108** |
+| 按 evidence_source | fgadr_mask 440 ・ ddr_mask 168 ・ grade0_neg 500 |
+| all_unseen | true |
+| 互斥性 | 与 TRAIN、DEV 图像级三方互斥（本机独立校验 overlap=0） |
 
 | 病灶 | present | absent | 小计 |
 |---|---:|---:|---:|
@@ -139,14 +168,18 @@ v5 相对 v3 两处变化：**逐病灶差异化 cap**（HE 抬正样本、MA/SE
 ### 3.1 训练 / 评估各用了多少
 
 | 集合 | 行数 | 图像 | 性质 |
-|---|---:|---|---|
-| 训练 `stage1_5_v3_train` | **9060** | 含 Adapter1 见过的图 | warm-start 训练用 |
-| 评估 `stage1_5_v3_test` | **1108** | 150 mask 图 + 120 grade-0 图，全部 Adapter1 未见、图像级互斥 | 选 ckpt + 汇报（v3 未分开） |
-| 合计 | **10168** | — | — |
+|---|---:|---:|---|
+| 训练 `stage1_5_v3_train` | **9060** | — | warm-start 训练用 |
+| 评估 `stage1_5_v3_test` | **1108** | 270 张目标池去重约 269 张 | 选 ckpt + 汇报（v3 未分开） |
+| 训练 `stage1_5_v5_train` | **11179** | **3878** | V5 per-lesion rebalance SFT |
+| DEV `stage1_5_v5_dev` | **1104** | **269** | checkpoint 选择专用 |
+| TEST `stage1_5_v5_test` | **1108** | **269** | 最终汇报；与 v3 test 可比 |
 
-> v3 只有 train + test 两份；**没有独立的 dev / 最终验证集**（v5 已补三分法）。
+> v3 只有 train + test 两份；**没有独立的 dev / 最终验证集**。v5 已改为 train/dev/test 三分法，且本机校验 `train_dev_overlap=0`、`train_test_overlap=0`、`dev_test_overlap=0`。
 
 ### 3.2 每个病灶各用了多少（present / absent）
+
+**v3（原始精确统计）**
 
 | 病灶 | 训练 present | 训练 absent | 训练小计 | 评估 present | 评估 absent | 评估小计 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -158,4 +191,16 @@ v5 相对 v3 两处变化：**逐病灶差异化 cap**（HE 抬正样本、MA/SE
 | IRMA | 0 | 0 | 0 | 0 | 0 | 0 |
 | NV | 0 | 0 | 0 | 0 | 0 | 0 |
 
-> 评估集每个病灶各 277 行（present + absent）。**SE 评估阳性仅 40 个**，SE 指标统计噪声较大，需谨慎解读。
+**v5（本机 build 精确统计）**
+
+| 病灶 | 训练 present | 训练 absent | 训练小计 | DEV present | DEV absent | DEV 小计 | TEST present | TEST absent | TEST 小计 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MA | 1000 | 2000 | 3000 | 115 | 161 | 276 | 119 | 158 | 277 |
+| HE | 1800 | 1300 | 3100 | 118 | 158 | 276 | 109 | 168 | 277 |
+| EX | 1000 | 1300 | 2300 | 96 | 180 | 276 | 91 | 186 | 277 |
+| SE | 779 | 2000 | 2779 | 38 | 238 | 276 | 40 | 237 | 277 |
+| **合计** | **4579** | **6600** | **11179** | **367** | **737** | **1104** | **359** | **749** | **1108** |
+| IRMA | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| NV | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+
+> 评估集每个病灶各约 276-277 行（present + absent）。**SE TEST 阳性仅 40 个**，SE 指标统计噪声较大，需谨慎解读。
