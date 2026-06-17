@@ -47,6 +47,60 @@ f 在 🟢 TRAIN 上拟合后**冻结**；它既是**训练监督**（生成走�
 
 ---
 
+## 1.5 证据与取舍：舍弃 / 弃权 / 不弃权（含 Figure 3 + 决策树）
+
+### 证据 1 — Figure 3：每 DR grade 的病灶阳性率（FGADR GT mask, n=1842）
+
+![Figure 3: lesion positive rate per DR grade](figures/fig3_lesion_posrate_by_grade.png)
+
+| grade | n | MA | HE | EX | SE |
+|---|---:|---:|---:|---:|---:|
+| G0 | 101 | 0.09 | 0.04 | 0.05 | 0.02 |
+| G1 | 212 | **0.92** | 0.25 | 0.20 | 0.02 |
+| G2 | 595 | 0.81 | 0.85 | 0.68 | 0.30 |
+| G3 | 647 | 0.83 | 0.98 | 0.90 | 0.52 |
+| G4 | 287 | 0.71 | 0.91 | 0.85 | 0.37 |
+
+读法：**G0 全阴、G1 MA 独高 → 可分**；**G2/G3/G4 四病灶阳性率高度重叠 → 仅凭"有无病灶"不可分**。这是弃权的动机。
+
+### 证据 2 — 忠实天花板：联合 pattern→grade 最优映射 = **0.688**
+
+| pattern | n | G0 | G1 | G2 | G3 | G4 | 结论 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| **MAHEEX（无SE）** | 547 | 1 | 16 | **223** | **216** | 91 | G2/G3≈50/50 → **弃权** |
+| MAHEEXSE | 400 | 1 | 0 | 70 | 256 | 73 | → Severe |
+| MA | 147 | 6 | **131** | 2 | 5 | 3 | → Mild |
+| none | 105 | **88** | 3 | 5 | 1 | 8 | → No-DR |
+
+best presence→grade map（4 类 No-DR/Mild/Mod/Sev）= **1267/1842 = 0.688**——即"光凭可见病灶能达到的上限"，剩下 0.312 是不可分边界（需象限计数/IRMA/串珠，看不到）。
+
+### 取舍清单（对应 5 分类）
+
+| 处置 | 内容 | 对应 tier |
+|---|---|---|
+| **舍弃（根本不用）** | NV/IRMA（mask 不可靠）；count/area、逐象限计数；静脉串珠 | 不进审计、不进映射 |
+| **不弃权（可信判定）** | none → **No-DR**；仅 MA → **Mild**；HE 主导/单双病灶 → **Moderate**；HE+EX 重负担 → **Severe** | No-DR / Mild / Moderate / Severe |
+| **弃权（校准）** | ① 强制：NV/IRMA 永远弃权；② 边界：MAHEEX、MAHESE、EX、EXSE 等 G2/G3≈50/50 的组合 | **Mod-or-Severe-indeterminate** |
+
+### 直观决策树（先弃权 NV/IRMA，再按 MA/HE/EX/SE 走）
+
+```
+根: NV / IRMA → 永远弃权，不作可见证据
+│
+├─ 无 MA/HE/EX/SE ............................................. No-DR
+├─ 仅 MA（无 HE/EX/SE）........................................ Mild
+├─ HE 且 EX 同时存在:
+│     ├─ 有 MA 且无 SE（MAHEEX）.............................. 弃权 (G2/G3≈50/50)
+│     └─ 其余（HEEX / HEEXSE / MAHEEXSE）..................... Severe
+├─ 仅 EX 类（EX、EXSE；无 HE 无 MA）.......................... 弃权
+├─ MA+HE+SE 且无 EX（MAHESE）................................. 弃权
+└─ 其余（HE、SE、HESE、MAHE、MASE、MAEX、MAEXSE）............. Moderate
+```
+
+> 树是**数据拟合**的（弃权叶子 = 经验上 G2/G3 不可分的 pattern），所以有 MAHEEX→弃权 而 HEEX→Severe 这类"非单调"分支——这是证据决定的，不是手写规则。该树即 §1 的 `fitted_map`，在训练里只作监督/判官，**不喂进 prompt**（见 §5）。
+
+---
+
 ## 2. 可用数据（精确，对 validated_clean 11783 统计）
 
 ### 🟢 mask-grounded（GT presence → 忠实 tier，精确读真 mask）
