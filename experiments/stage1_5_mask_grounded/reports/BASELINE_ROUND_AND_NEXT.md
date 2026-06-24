@@ -130,3 +130,108 @@
 ---
 
 *脚本:`run_vlm_perception.py`(多厂家零样本推理)、`score_stage2_from_audit.py`(审计→映射→tier 评分)、`score_perception_sweep.py`、`run_new_baselines_robust.sh`(GPU 自愈批跑)。所有基线预测已归档。*
+
+---
+
+# 补充材料(导师汇报版)
+
+## A. 明确的训练目标
+
+**总目标**:把通用/医学视觉语言模型,改造成一个**忠实(faithful)、可解释、会校准弃权**的 DR 分诊系统——每个分级都由**可验证的病灶证据**支撑,且在视觉证据不可判定处**显式弃权**而非猜测。分两阶段:
+
+- **第一阶段(病灶感知)训练目标**:对单张眼底图,逐个判断 4 种可靠病灶 **MA/HE/EX/SE 的 present/absent**(像素 mask 接地);**强制只依据可见证据、不从 DR 等级反推**;对数据稀缺、视觉不可靠的 **IRMA/NV 永久弃权**。产物 = 可靠的"病灶审计"。
+- **第二阶段(可解释分诊)训练目标**:在第一阶段之上,学会输出一条**忠实思维链**:`[病灶审计] → [决策路径] → [结论] → [JSON]`;**分级 = 病灶组合的透明函数**;遇到视觉上无法区分"中度 vs 重度"的模式时,输出**校准弃权档**。
+
+**系统提示(真实,内部 300 测试集所用)**:
+> *You are a diabetic retinopathy triage assistant. Audit MA/HE/EX/SE from directly visible evidence; IRMA and NV are not visually reliable and must be abstained (never claim to see them). Using only verifiable present/absent evidence, assign a DR tier; when visible evidence cannot separate moderate from severe NPDR, say so (severity indeterminate) rather than guessing. Do not use lesion counts.*
+
+## B. 五档分诊的具体定义
+
+| 档位 | 定义(基于可验证病灶组合) | referable | 临床动作 |
+|---|---|---|---|
+| **No-DR** | 无任何可靠病灶(MA/HE/EX/SE 全阴) | 否 | 常规随访 |
+| **Mild** | 仅微动脉瘤(MA-only) | 否 | 监测 |
+| **Moderate** | 中度病灶负担(如 HE / EX / 多病灶组合,但未达重度模式) | **是** | 转诊 |
+| **Severe** | 重度负担模式(HE+EX 共存等) | **是** | 转诊,优先 |
+| **Mod-or-Severe-indeterminate(校准弃权)** | 证据确属可转诊,但**可见证据无法区分中度 vs 重度/PDR**(需逐象限出血计数/IRMA/NV/静脉串珠,均不可靠) | **是** | 转诊 + 标记需人工细分 |
+
+**病灶组合 → 档位的透明映射(数据拟合,16 模式,非手写)**:
+```
+none->No-DR  MA->Mild  HE/HESE/MASE/MAEX/MAEXSE/MAHE/SE->Moderate
+HEEX/HEEXSE/MAHEEXSE->Severe   EX/EXSE/MAHESE/MAHEEX->Mod-or-Severe-indeterminate
+```
+(IRMA/NV 永不进入审计;无 count/area。)
+
+## C. 真实 Stage-2 输入 / 输出样例(取自本地真实数据)
+
+**统一输入(User)**:`<image>\nAudit MA/HE/EX/SE (abstain on IRMA/NV), then assign the DR tier. Output: [Lesion Audit] -> [Decision Path] -> [Conclusion] -> [JSON].`
+
+**样例 1 — No-DR**(真实训练样本,`cropped/aptos/grade0/18ce0cdc473d.png`,clinical_grade=0):
+```
+[Lesion Audit]
+- MA: absent. / - HE: absent. / - EX: absent. / - SE: absent.
+- IRMA: not visually assessable — abstained. / - NV: not visually assessable — abstained.
+[Decision Path] Step1 no reliable DR lesion (MA/HE/EX/SE) visible -> No-DR.
+[Conclusion] DR tier = No-DR; referable_dr = no; evidence is directly visible.
+[JSON] {"dr_tier":"No-DR","referable_dr":false,"lesions_present":[],"abstained":["IRMA","NV"],"severity_indeterminate":false,"evidence_limited":false}
+```
+
+**样例 2 — Mild**(`cropped/aptos/grade1_4/29b52f64d2db.png`,clinical_grade=1):
+```
+[Lesion Audit] - MA: present — tiny round red dot-like abnormalities. - HE/EX/SE: absent. - IRMA/NV: abstained.
+[Decision Path] Step1 reliable DR lesion present: MA. Step2 only MA, no HE/EX -> Mild.
+[Conclusion] DR tier = Mild; referable_dr = no.
+[JSON] {"dr_tier":"Mild","referable_dr":false,"lesions_present":["MA"],"abstained":["IRMA","NV"],...}
+```
+
+**样例 3 — Moderate**(`FGADR/Seg-set/Original_Images/0099_1.png`,clinical_grade=2):
+```
+[Lesion Audit] - MA: present. - HE: present. - EX/SE: absent. - IRMA/NV: abstained.
+[Decision Path] Step1 present: MA, HE. Step2 HE/EX present -> referable. Step3 pattern consistent with moderate NPDR -> Moderate.
+[JSON] {"dr_tier":"Moderate","referable_dr":true,"lesions_present":["MA","HE"],...}
+```
+
+**样例 4 — Mod-or-Severe-indeterminate(弃权,核心)**(`FGADR/Seg-set/Original_Images/1490_1.png`,clinical_grade=2):
+```
+[Lesion Audit] - MA: present. - HE: present. - EX: present. - SE: absent. - IRMA/NV: abstained.
+[Decision Path] Step1 present: MA, HE, EX. Step2 HE/EX present -> referable.
+  Step3 this lesion pattern does not separate moderate from severe NPDR on visible evidence
+  (distinguishing them needs per-quadrant hemorrhage counts / IRMA / NV, not visually assessable)
+  -> referable, severity indeterminate.
+[Conclusion] DR tier = Mod-or-Severe-indeterminate; referable_dr = yes; severity indeterminate; evidence_limited.
+[JSON] {"dr_tier":"Mod-or-Severe-indeterminate","referable_dr":true,"lesions_present":["MA","HE","EX"],
+        "abstained":["IRMA","NV"],"severity_indeterminate":true,"evidence_limited":true}
+```
+
+**样例 5 — 真实模型推理输出**(我们的 Stage-2 SFT 模型在 **Messidor-2 外部图**上的实际生成,非训练标签):
+```
+[Lesion Audit] - MA: present — tiny round red dots. - HE: present — dark-red blot/flame hemorrhages.
+- EX: present — bright yellow-white sharp-bordered deposits. - SE: absent. - IRMA/NV: abstained.
+[Decision Path] Step1 present: MA, HE, EX. Step2 HE/EX -> referable.
+  Step3 cannot separate moderate vs severe on visible evidence -> referable, severity indeterminate.
+[Conclusion] referable_dr = yes; severity indeterminate; evidence_limited.
+[JSON] {"dr_tier":"Mod-or-Severe-indeterminate","referable_dr":true,"lesions_present":["MA","HE","EX"],...}
+```
+→ 模型**自己**产出可核对的证据链 + 在中/重边界**主动弃权**,这就是"忠实可解释"的最终形态。
+
+## D. 贡献分析与论文故事
+
+### D.1 我们目前的贡献(基于现有结果)
+1. **方法**:`from-audit` 忠实解耦框架——模型只产可验证审计,分级由**透明映射**算出 → **忠实 by construction**;并在视觉不可分边界**校准弃权**。SFT 后我们的模型可**原生**产出该忠实链(自由生成忠实度 0.43→~1.0)。
+2. **评估概念**:提出 **"忠实天花板 0.688"**(仅凭可见病灶证据、4 类分级的准确率上限);并证明 SOTA 级的不忠实模型(旧 l4_v3 外部 QWK 0.695)**越过该天花板** → 实证其高分依赖**不可忠实感知的捷径**(NV/IRMA;G4 召回仅 0.045)。
+3. **第一阶段地基**:把病灶感知从基模的 F1 0.41 提到 0.68、**最均衡**(含 SE 专项修复:误报 143→11);跨 5 个同体量多厂家模型对比中**感知 F1 最高**。
+4. **数据效率**:全套仅 ~1.3 万任务样本 + 透明规则,在干净外部上与喂了 ~505 万医学样本的 Lingshu 持平略胜。
+5. **诚实的负面发现**(本身是贡献):计数/面积不可泛化、决策规则非杠杆、端到端微调分级头在外部反而过拟合掉点、SE 存在特征天花板。
+
+### D.2 论文故事应该怎么讲(定位)
+- **不是"打榜/刷 SOTA"论文**(忠实分级的精度由天花板 0.688 封顶,刷过它=不忠实)。
+- **是"可信/可解释医疗 AI + 评估方法学"论文**,核心论点:
+  > **"DR 分级的高准确率,有多少是真正基于可见病灶证据,有多少是靠不可验证的捷径?我们用一个忠实 by construction、会校准弃权的框架,把'可忠实达到的精度'界定出来(忠实天花板 0.688),并证明 SOTA 模型的超额精度来自不可信证据;我们的框架以百分之一的数据匹配该上限,同时提供可核对的证据链与安全弃权。"**
+- **公平对比设计(回应循环质疑)**:
+  - *消融 1(底座)*:固定我们的框架、换底座(from-audit 表)→ 比"谁的审计更好"。
+  - *消融 2(框架)*:同一底座下 **黑箱原生分级(框架关) vs 我们框架(框架开)** → 比框架贡献;并从黑箱的自由推理中检测**原生不忠实**(是否援引 NV/IRMA)。
+  - 公共指标用 **referable 灵敏度/特异度 + 重病召回**(二元、跨框架对称),避免用我们的五档去套黑箱。
+- **目标会议**:AJCAI 2026(CORE B),医学 AI 受欢迎、不强求 SOTA → **故事成立、命中率中上**。需补强:外部验证扩到全量 Messidor-2(~1744)、related work 精确定位"忠实/selective-prediction"。
+
+### D.3 诚实的局限(论文须写明)
+- 忠实精度低于不忠实 SOTA(代价);感知较强医学底座(Lingshu)仅小幅领先;SE/MA 受特征与数据上限;内部测试集对多模型有不同泄漏(故以外部 Messidor-2 为准)。
