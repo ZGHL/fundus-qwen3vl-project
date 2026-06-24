@@ -115,20 +115,41 @@
 
 ---
 
-## 5. 真实推理样例(取自本地真实数据)
+## 5. 模型输出的思维链(真实生成,附我们的解释)
 
-**统一输入**:`Audit MA/HE/EX/SE (abstain on IRMA/NV), then assign the DR tier. Output: [Lesion Audit] -> [Decision Path] -> [Conclusion] -> [JSON].`
+以下均为我们模型在 **Messidor-2 外部图**上的**真实输出**(非训练标签)。展示的是模型自己生成的思维链。
 
-**无病灶(No-DR)**:`MA/HE/EX/SE: absent; IRMA/NV: abstained → No-DR; referable=no`
-**弃权档(模型在 Messidor-2 外部图上的真实生成)**:
+### 样例 A — 无病灶
 ```
-[Lesion Audit] MA: present; HE: present; EX: present; SE: absent; IRMA/NV: abstained.
-[Decision Path] Step1 present: MA,HE,EX. Step2 HE/EX -> referable.
-  Step3 cannot separate moderate vs severe on visible evidence (needs per-quadrant counts/IRMA/NV) -> indeterminate.
-[Conclusion] referable=yes; severity indeterminate; evidence_limited.
+[Lesion Audit]
+- MA: absent. / - HE: absent. / - EX: absent. / - SE: absent.
+- IRMA: not visually assessable — abstained.
+- NV:   not visually assessable — abstained.
+[Decision Path]  Step1 no reliable DR lesion (MA/HE/EX/SE) visible -> No-DR.
+[Conclusion]     DR tier = No-DR; referable_dr = no; evidence is directly visible.
+[JSON] {"dr_tier":"No-DR","referable_dr":false,"lesions_present":[],"abstained":["IRMA","NV"],"severity_indeterminate":false}
+```
+**我们的解释**:模型逐项核查 4 个可靠病灶并全部判阴 → No-DR;**即便此处无病灶,仍对 IRMA/NV 显式标注"不可视觉判定—弃权"**,从不臆造。结论中"evidence is directly visible"表明该判断完全可核对。
+
+### 样例 B — 校准弃权(框架核心能力)
+```
+[Lesion Audit]
+- MA: present — tiny, round, well-defined red dot-like abnormalities.
+- HE: present — dark-red dot/blot/flame-shaped hemorrhagic abnormalities.
+- EX: present — bright yellow-white deposits with sharp borders.
+- SE: absent.
+- IRMA / NV: not visually assessable — abstained.
+[Decision Path]
+  Step1 reliable DR lesion present: MA, HE, EX.
+  Step2 HE and/or EX present -> referable.
+  Step3 this lesion pattern does not separate moderate from severe NPDR on visible
+        evidence (distinguishing them needs per-quadrant hemorrhage counts / IRMA / NV,
+        which are not visually assessable) -> referable, severity indeterminate.
+[Conclusion] DR tier = Mod-or-Severe-indeterminate; referable_dr = yes;
+             severity indeterminate; evidence_limited.
 [JSON] {"dr_tier":"Mod-or-Severe-indeterminate","referable_dr":true,"lesions_present":["MA","HE","EX"],"abstained":["IRMA","NV"],"severity_indeterminate":true}
 ```
-→ 模型自己产出可核对的证据链,并在中/重边界**主动弃权**——这就是"忠实可解释"的最终形态。
+**我们的解释**:这是最能体现"忠实"的一例。模型(1)**先列出可核对的病灶证据**(MA/HE/EX 在、SE 不在);(2)据证据**确定地给出"需转诊"**(HE/EX → referable);(3)在要进一步区分中度 vs 重度时,**明确指出可见证据不足、所需的逐象限计数/IRMA/NV 不可靠,于是主动弃权**(severity indeterminate),而不是猜一个等级。每一步的结论都能溯回到它陈述的证据——**会转诊、但不假装能看出它看不出的东西**,正是黑箱模型不具备的行为。
 
 ---
 
