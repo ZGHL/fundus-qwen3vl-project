@@ -40,11 +40,14 @@
 - 数据:训练 4081(忠实 CoT);外部测试 **Messidor-2**(全量 1744,自然患病率 G0 1017/G1 270/G2 347/G3 75/G4 35;及 4 档平衡子集 440)。
 
 **透明映射规则(病灶组合 → 档;数据拟合,非手写):**
-| 病灶组合 | 档 | 病灶组合 | 档 |
-|---|---|---|---|
-| 无 | No-DR | MA | Mild |
-| HE / HESE / SE / MASE / MAEX / MAEXSE / MAHE | Moderate | HEEX / HEEXSE / MAHEEXSE | Severe |
-| EX / EXSE / MAHESE / MAHEEX | **弃权(中/重不可分)** | (IRMA/NV) | **永久弃权** |
+| 病灶组合 | 档 |
+|---|---|
+| 无 | No-DR |
+| MA | Mild |
+| HE / HESE / SE / MASE / MAEX / MAEXSE / MAHE | Moderate |
+| HEEX / HEEXSE / MAHEEXSE | Severe |
+| EX / EXSE / MAHESE / MAHEEX | **弃权(中/重不可分)** |
+| (IRMA/NV) | **永久弃权** |
 
 映射回标准 0–4:No-DR→0,Mild→1,Moderate→2,**弃权→2**,Severe→3(PDR 并入 Severe,我们**永不输出 4**)。
 
