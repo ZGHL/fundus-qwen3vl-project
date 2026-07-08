@@ -1,0 +1,107 @@
+{
+ "area_tertiles": {
+  "MA": [
+   0.00033153076171875005,
+   0.001141357421875
+  ],
+  "HE": [
+   0.0031389465332031254,
+   0.010058288574218753
+  ],
+  "EX": [
+   0.0015605957031250002,
+   0.0071029541015625005
+  ],
+  "SE": [
+   0.0016157348632812503,
+   0.0041832763671875006
+  ]
+ },
+ "n_images_total": 1842,
+ "n_test_images": 272,
+ "train": {
+  "n": 1920,
+  "lesion_state": {
+   "EX/absent": 160,
+   "EX/present": 320,
+   "HE/absent": 160,
+   "HE/present": 320,
+   "MA/absent": 160,
+   "MA/present": 320,
+   "SE/absent": 160,
+   "SE/present": 320
+  },
+  "count_bucket": {
+   "EX/few": 84,
+   "EX/many": 201,
+   "EX/single": 35,
+   "HE/few": 86,
+   "HE/many": 194,
+   "HE/single": 40,
+   "MA/few": 129,
+   "MA/many": 150,
+   "MA/single": 41,
+   "SE/few": 149,
+   "SE/many": 47,
+   "SE/single": 124
+  },
+  "area_bucket": {
+   "EX/large": 112,
+   "EX/medium": 96,
+   "EX/small": 112,
+   "HE/large": 87,
+   "HE/medium": 113,
+   "HE/small": 120,
+   "MA/large": 96,
+   "MA/medium": 111,
+   "MA/small": 113,
+   "SE/large": 105,
+   "SE/medium": 111,
+   "SE/small": 104
+  }
+ },
+ "test": {
+  "n": 587,
+  "lesion_state": {
+   "EX/absent": 50,
+   "EX/present": 100,
+   "HE/absent": 50,
+   "HE/present": 100,
+   "MA/absent": 50,
+   "MA/present": 100,
+   "SE/absent": 50,
+   "SE/present": 87
+  },
+  "count_bucket": {
+   "EX/few": 25,
+   "EX/many": 61,
+   "EX/single": 14,
+   "HE/few": 26,
+   "HE/many": 64,
+   "HE/single": 10,
+   "MA/few": 36,
+   "MA/many": 46,
+   "MA/single": 18,
+   "SE/few": 48,
+   "SE/many": 12,
+   "SE/single": 27
+  },
+  "area_bucket": {
+   "EX/large": 38,
+   "EX/medium": 35,
+   "EX/small": 27,
+   "HE/large": 36,
+   "HE/medium": 28,
+   "HE/small": 36,
+   "MA/large": 33,
+   "MA/medium": 32,
+   "MA/small": 35,
+   "SE/large": 36,
+   "SE/medium": 25,
+   "SE/small": 26
+  }
+ },
+ "min_px": 5,
+ "count_buckets": "single/few(2-5)/many(>5)",
+ "area_buckets": "FGADR per-lesion tertiles small/medium/large"
+}

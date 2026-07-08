@@ -1,0 +1,50 @@
+### Stage-2 faithful triage — warm-start Stage-1.5 v3. Output 5-tier CoT (No-DR/Mild/Moderate/Severe/Indeterminate).
+model_name_or_path: ./models/Qwen3-VL-8B-Instruct
+adapter_name_or_path: saves/qwen3-vl-8b-fundus/lora/stage1_5_v3/checkpoint-400   # warm-start Stage-1.5 v3
+create_new_adapter: false
+trust_remote_code: true
+flash_attn: fa2          # VM: install flash-attn; GB10 fallback -> sdpa
+
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+freeze_vision_tower: false
+freeze_multi_modal_projector: true
+freeze_language_model: false
+
+dataset_dir: data/annotation
+media_dir: data
+dataset: stage2_grade_train
+template: qwen3_vl_nothink
+cutoff_len: 2304
+preprocessing_num_workers: 16
+dataloader_num_workers: 8
+overwrite_cache: true
+
+image_max_pixels: 589824   # VM full res; GB10 use 262144
+image_min_pixels: 65536
+
+output_dir: saves/qwen3-vl-8b-fundus/lora/stage2_grade
+logging_steps: 10
+save_steps: 60
+save_total_limit: 8
+plot_loss: true
+overwrite_output_dir: true
+report_to: tensorboard
+
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 2
+learning_rate: 5.0e-6
+num_train_epochs: 2.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+fp16: false
+max_grad_norm: 1.0
+optim: adamw_torch
+gradient_checkpointing: false
+ddp_timeout: 180000000

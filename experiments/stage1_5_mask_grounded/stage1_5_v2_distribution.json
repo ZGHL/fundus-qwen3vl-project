@@ -1,0 +1,43 @@
+{
+ "train": {
+  "n": 9699,
+  "by_dataset": {
+   "ddr": 2779,
+   "fgadr": 6656,
+   "idrid": 264
+  },
+  "lesion_state": {
+   "EX/absent": 780,
+   "EX/present": 1736,
+   "HE/absent": 508,
+   "HE/present": 2008,
+   "MA/absent": 569,
+   "MA/present": 1951,
+   "SE/absent": 1288,
+   "SE/present": 859
+  },
+  "all_unseen": false
+ },
+ "test": {
+  "n": 600,
+  "by_dataset": {
+   "fgadr": 452,
+   "ddr": 148
+  },
+  "lesion_state": {
+   "EX/absent": 54,
+   "EX/present": 96,
+   "HE/absent": 35,
+   "HE/present": 115,
+   "MA/absent": 36,
+   "MA/present": 114,
+   "SE/absent": 109,
+   "SE/present": 41
+  },
+  "all_unseen": true
+ },
+ "idrid_reused": 272,
+ "n_test_images": 150,
+ "neg_ratio": 1.5,
+ "note": "warm-start; TEST=Adapter1-unseen whole-image disjoint; train neg capped to boost MA/SE"
+}

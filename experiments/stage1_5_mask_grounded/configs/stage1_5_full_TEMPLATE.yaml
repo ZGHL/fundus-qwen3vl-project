@@ -1,0 +1,56 @@
+### Stage-1.5 FULL (VM) TEMPLATE — warm-start Adapter 1, full mask-grounded data.
+### Differences vs proof: full dataset, flash-attn, larger batch, 2 epochs, full res.
+### Build full data first: raise TRAIN_CAP in build_fgadr_main4.py to use all FGADR
+### present+negatives, then merge DDR-seg/IDRiD S0 samples (from existing
+### fundus_stage1_en_cot_train, source in {ddr_mask,strong_mask_stage1_easy}) +
+### optional RetSAM-weak HE/EX/SE (tag weak tier). Register as fgadr_main4_FULL.
+model_name_or_path: ./models/Qwen3-VL-8B-Instruct
+adapter_name_or_path: saves/qwen3-vl-8b-fundus/lora/stage1_en_cot   # Adapter 1 warm-start
+create_new_adapter: false
+trust_remote_code: true
+flash_attn: fa2            # VM: install flash-attn (~2x); GB10 had none -> sdpa
+
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+freeze_vision_tower: false
+freeze_multi_modal_projector: true
+freeze_language_model: false
+
+dataset_dir: data/annotation
+media_dir: data
+dataset: fgadr_main4_FULL          # TODO: build full set (see header)
+eval_dataset: fundus_stage1_en_cot_gold_dev   # present/absent vs Adapter1 baseline
+template: qwen3_vl_nothink
+cutoff_len: 2304
+preprocessing_num_workers: 16
+dataloader_num_workers: 8
+overwrite_cache: true
+
+image_max_pixels: 589824           # full res (match Adapter1)
+image_min_pixels: 65536
+
+output_dir: saves/qwen3-vl-8b-fundus/lora/stage1_5_full
+logging_steps: 10
+save_steps: 100
+save_total_limit: 8
+plot_loss: true
+overwrite_output_dir: true
+report_to: tensorboard
+
+per_device_train_batch_size: 8     # VM: larger batch (more VRAM)
+gradient_accumulation_steps: 2
+learning_rate: 6.0e-6
+num_train_epochs: 2.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+bf16: true
+fp16: false
+max_grad_norm: 1.0
+optim: adamw_torch
+gradient_checkpointing: false
+ddp_timeout: 180000000

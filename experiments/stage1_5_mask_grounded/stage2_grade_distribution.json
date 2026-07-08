@@ -1,0 +1,104 @@
+{
+ "fitted_map(pattern->tier)": {
+  "none": "No-DR",
+  "SE": "Moderate",
+  "EX": "Mod-or-Severe-indeterminate",
+  "EXSE": "Mod-or-Severe-indeterminate",
+  "HE": "Moderate",
+  "HESE": "Moderate",
+  "HEEX": "Severe",
+  "HEEXSE": "Severe",
+  "MA": "Mild",
+  "MASE": "Moderate",
+  "MAEX": "Moderate",
+  "MAEXSE": "Moderate",
+  "MAHE": "Moderate",
+  "MAHESE": "Mod-or-Severe-indeterminate",
+  "MAHEEX": "Mod-or-Severe-indeterminate",
+  "MAHEEXSE": "Severe"
+ },
+ "sev_thr": 0.6,
+ "train": {
+  "n": 4081,
+  "tier": {
+   "No-DR": 1400,
+   "Mild": 1000,
+   "Moderate": 318,
+   "Severe": 633,
+   "Mod-or-Severe-indeterminate": 730
+  },
+  "src": {
+   "grounded": 2077,
+   "grade_derived": 2004
+  },
+  "referable": {
+   "true": 1681,
+   "false": 2400
+  },
+  "clinical_vs_tier": {
+   "Mild->Mild": 923,
+   "Mild->Mod-or-Severe-indeterminate": 22,
+   "Mild->Moderate": 44,
+   "Mild->No-DR": 2,
+   "Mild->Severe": 5,
+   "Moderate->Mild": 38,
+   "Moderate->Mod-or-Severe-indeterminate": 317,
+   "Moderate->Moderate": 194,
+   "Moderate->No-DR": 2,
+   "Moderate->Severe": 128,
+   "No-DR->Mild": 6,
+   "No-DR->Mod-or-Severe-indeterminate": 6,
+   "No-DR->Moderate": 1,
+   "No-DR->No-DR": 1391,
+   "No-DR->Severe": 7,
+   "Severe->Mild": 33,
+   "Severe->Mod-or-Severe-indeterminate": 385,
+   "Severe->Moderate": 79,
+   "Severe->No-DR": 5,
+   "Severe->Severe": 493
+  }
+ },
+ "test": {
+  "n": 300,
+  "tier": {
+   "No-DR": 60,
+   "Mild": 60,
+   "Moderate": 60,
+   "Severe": 60,
+   "Mod-or-Severe-indeterminate": 60
+  },
+  "src": {
+   "grounded": 191,
+   "grade_derived": 109
+  },
+  "referable": {
+   "true": 180,
+   "false": 120
+  },
+  "clinical_vs_tier": {
+   "Mild->Mild": 57,
+   "Mild->Mod-or-Severe-indeterminate": 3,
+   "Mild->Moderate": 6,
+   "Mild->Severe": 2,
+   "Moderate->Mild": 3,
+   "Moderate->Mod-or-Severe-indeterminate": 24,
+   "Moderate->Moderate": 41,
+   "Moderate->Severe": 11,
+   "No-DR->Mod-or-Severe-indeterminate": 1,
+   "No-DR->Moderate": 2,
+   "No-DR->No-DR": 60,
+   "No-DR->Severe": 1,
+   "Severe->Mod-or-Severe-indeterminate": 32,
+   "Severe->Moderate": 11,
+   "Severe->Severe": 46
+  }
+ },
+ "caps": {
+  "No-DR": 1400,
+  "Mild": 1000,
+  "Moderate": 1400,
+  "Severe": 1400,
+  "Mod-or-Severe-indeterminate": 1400
+ },
+ "note": "faithful: tier=data-fit map over verifiable presence; abstain on undecidable Mod/Severe; clinical grade = eval ref; grounded FGADR(mask)+IDRiD; aptos/ddr via --v3-preds."
+}
